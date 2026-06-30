@@ -1,0 +1,48 @@
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+body {
+  font-family: 'Mulish', system-ui, sans-serif;
+  background: #eef0f3;
+  color: #2b2535;
+  -webkit-font-smoothing: antialiased;
+}
+#root {
+  min-height: 100vh;
+}
+
+/* Themed scrollbars used across scrollable regions */
+.swnz-scroll::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+.swnz-scroll::-webkit-scrollbar-thumb {
+  background: #cfd0d8;
+  border-radius: 8px;
+}
+.swnz-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Hover affordances ported from the prototype's style-hover attribute */
+.swnz-hover {
+  transition: background 0.12s ease;
+}
+.swnz-hover-blue:hover {
+  background: #eaf6fc !important;
+}
+.swnz-hover-grey:hover {
+  background: #f5f4f8 !important;
+}
+.swnz-hover-card:hover {
+  background: #e6f3fb !important;
+}
+
+input::placeholder {
+  color: #a8a4b0;
+}

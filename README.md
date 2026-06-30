@@ -1,25 +1,59 @@
-# CODING AGENTS: READ THIS FIRST
+# SWNZ Content
 
-This is a **handoff bundle** from Claude Design (claude.ai/design).
+A Content-Snare-style content-collection tool in the **School Websites New Zealand** brand,
+built as a single-page **React + Vite + TypeScript** app.
 
-A user mocked up designs in HTML/CSS/JS using an AI design tool, then exported this bundle so a coding agent can implement the designs for real.
+It recreates the design prototype in `project/SWNZ Content.dc.html`. Screens:
 
-## What you should do — IMPORTANT
+- **Requests board** — Kanban columns with featured (gradient) request cards and white
+  progress/stats cards, status badges, owners, and due dates.
+- **Request detail** — Oranga School (empty "submit for review" state) and Ross School
+  (submitted/approved welcome text with a rich-text editor), each with a page/section checklist.
+- **Add Request wizard** — Templates → Essentials → Builder → Preview → Finalize, including a
+  working page/section/field builder and a field-type picker modal.
+- **Quick Actions** dropdown.
 
-**Read the chat transcripts first.** There are 1 chat transcript(s) in `chats/`. The transcripts show the full back-and-forth between the user and the design assistant — they tell you **what the user actually wants** and **where they landed** after iterating. Don't skip them. The final HTML files are the output, but the chat is where the intent lives.
+## Develop
 
-**Read `project/SWNZ Content.dc.html` in full.** The user had this file open when they triggered the handoff, so it's almost certainly the primary design they want built. Read it top to bottom — don't skim. Then **follow its imports**: open every file it pulls in (shared components, CSS, scripts) so you understand how the pieces fit together before you start implementing.
+```bash
+npm install
+npm run dev        # http://localhost:5173
+```
 
-**If anything is ambiguous, ask the user to confirm before you start implementing.** It's much cheaper to clarify scope up front than to build the wrong thing.
+## Build
 
-## About the design files
+```bash
+npm run build      # type-checks then bundles to dist/
+npm run preview    # serve the production build locally
+```
 
-The design medium is **HTML/CSS/JS** — these are prototypes, not production code. Your job is to **recreate them pixel-perfectly** in whatever technology makes sense for the target codebase (React, Vue, native, whatever fits). Match the visual output; don't copy the prototype's internal structure unless it happens to fit.
+The build is a fully static bundle in `dist/` — no server runtime required.
 
-**Don't render these files in a browser or take screenshots unless the user asks you to.** Everything you need — dimensions, colors, layout rules — is spelled out in the source. Read the HTML and CSS directly; a screenshot won't tell you anything they don't.
+## Deploy to Render
 
-## Bundle contents
+This repo includes a [`render.yaml`](./render.yaml) blueprint that provisions a **Static Site**.
 
-- `README.md` — this file
-- `chats/` — conversation transcripts (read these!)
-- `project/` — the `SWNZ content` project files (HTML prototypes, assets, components)
+1. Push this repo to GitHub.
+2. In the [Render dashboard](https://dashboard.render.com/): **New → Blueprint**, then connect this
+   repository. Render reads `render.yaml` and creates the static site automatically.
+   - Build command: `npm install && npm run build`
+   - Publish directory: `dist`
+   - SPA rewrite (`/* → /index.html`) is preconfigured so the app's client-side navigation works.
+3. Render builds and gives you a live `*.onrender.com` URL. Every push to the connected branch
+   redeploys automatically.
+
+> Prefer manual setup? **New → Static Site** with the same build command and publish directory.
+
+## Project layout
+
+```
+src/
+  App.tsx              # single state store + screen routing
+  types.ts             # shared types
+  data.ts              # board/template/field data + colour helpers
+  styles.css           # global styles, scrollbars, hover affordances
+  components/          # TopChrome, Board, OrangaDetail, RossDetail, Wizard, FieldModal
+public/assets/         # SWNZ logo / icon
+project/               # original design prototype (reference)
+docs/DESIGN_HANDOFF.md # original Claude Design handoff notes
+```
