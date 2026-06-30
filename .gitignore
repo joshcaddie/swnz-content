@@ -3,3 +3,13 @@ dist
 *.local
 *.tsbuildinfo
 .DS_Store
+
+# Env: keep .env.example, ignore real env files
+.env
+.env.*
+!.env.example
+
+# Supabase local artifacts
+supabase/.branches
+supabase/.temp
+supabase/.env

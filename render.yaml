@@ -19,3 +19,9 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "20"
+      # Set these in the Render dashboard (Environment tab). They are public (the anon key is
+      # safe to expose; RLS protects the data). A rebuild is required after changing them.
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false

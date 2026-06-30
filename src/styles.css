@@ -43,6 +43,35 @@ body {
   background: #e6f3fb !important;
 }
 
-input::placeholder {
+input::placeholder,
+textarea::placeholder {
   color: #a8a4b0;
+}
+
+/* TipTap / rich-text content */
+.swnz-prose .ProseMirror {
+  padding: 22px 26px;
+  min-height: 160px;
+  outline: none;
+  color: #2b2535;
+  font-size: 18px;
+  line-height: 1.7;
+}
+.swnz-prose .ProseMirror:focus {
+  outline: none;
+}
+.swnz-prose p {
+  margin: 0 0 16px;
+}
+.swnz-prose h2 {
+  font-size: 22px;
+  margin: 0 0 12px;
+}
+.swnz-prose a {
+  color: #1493d6;
+}
+.swnz-prose ul,
+.swnz-prose ol {
+  margin: 0 0 16px;
+  padding-left: 24px;
 }

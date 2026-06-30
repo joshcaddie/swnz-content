@@ -1,0 +1,49 @@
+# Supabase local/project config. `project_id` is the local stack name.
+project_id = "swnz-content"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:5173"
+additional_redirect_urls = ["http://127.0.0.1:5173", "https://swnz-content.onrender.com"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+
+[functions.client-request]
+verify_jwt = false
+[functions.client-answer]
+verify_jwt = false
+[functions.client-upload]
+verify_jwt = false
+[functions.client-verify]
+verify_jwt = false
+[functions.send-reminders]
+verify_jwt = false
