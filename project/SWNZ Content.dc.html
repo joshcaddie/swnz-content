@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Mulish:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Mulish', system-ui, sans-serif; background: #eef0f3; color: #2b2535; -webkit-font-smoothing: antialiased; }
+  .swnz-scroll::-webkit-scrollbar { height: 10px; width: 10px; }
+  .swnz-scroll::-webkit-scrollbar-thumb { background: #cfd0d8; border-radius: 8px; }
+  .swnz-scroll::-webkit-scrollbar-track { background: transparent; }
+</style>
+</helmet>
+
+<div style="min-height:100vh; background:#eef0f3; display:flex; flex-direction:column;">
+
+  <!-- ===== TOP CHROME (shared) ===== -->
+  <div style="height:6px; background:linear-gradient(90deg,#1ed79a 0%,#19c2c0 45%,#1ba0e6 100%); flex:none;"></div>
+  <div style="background:#16294a; height:74px; flex:none; display:flex; align-items:center; padding:0 26px; gap:30px; position:sticky; top:0; z-index:40;">
+    <div onClick="{{ goBoard }}" style="display:flex; align-items:center; gap:14px; cursor:pointer; flex:none;">
+      <img src="assets/swnz-icon.png" alt="SWNZ" style="width:48px; height:48px; object-fit:contain; flex:none;" />
+      <div style="color:#fff; font-weight:800; font-size:20px; letter-spacing:0.2px;">School Websites New Zealand</div>
+    </div>
+    <div style="flex:1; display:flex; align-items:center; justify-content:center; gap:34px;">
+      <div onClick="{{ goBoard }}" style="color:#2fb3e8; font-weight:700; font-size:17px; cursor:pointer; position:relative;">Requests<span style="position:absolute; left:50%; transform:translateX(-50%); bottom:-12px; width:5px; height:5px; border-radius:50%; background:#2fb3e8;"></span></div>
+      <div style="color:#e7e2ef; font-weight:500; font-size:17px; cursor:pointer;">Calendar</div>
+      <div style="color:#e7e2ef; font-weight:500; font-size:17px; cursor:pointer; display:flex; align-items:center; gap:6px;">Clients<span style="font-size:11px; opacity:.8;">▾</span></div>
+      <div style="color:#e7e2ef; font-weight:500; font-size:17px; cursor:pointer;">Team</div>
+      <div style="color:#e7e2ef; font-weight:500; font-size:17px; cursor:pointer;">Templates</div>
+      <div style="color:#e7e2ef; font-weight:500; font-size:17px; cursor:pointer;">Reminders</div>
+    </div>
+    <div style="display:flex; align-items:center; gap:22px; flex:none;">
+      <div style="position:relative; color:#e7e2ef; font-size:21px; cursor:pointer;">🔔<span style="position:absolute; top:-7px; right:-9px; background:#2fb3e8; color:#fff; font-size:11px; font-weight:800; min-width:18px; height:18px; border-radius:9px; display:flex; align-items:center; justify-content:center; padding:0 4px;">1</span></div>
+      <div style="position:relative; width:26px; height:26px; border-radius:50%; border:2px solid #e7e2ef; color:#e7e2ef; font-weight:800; font-size:15px; display:flex; align-items:center; justify-content:center; cursor:pointer;">?<span style="position:absolute; top:-9px; right:-14px; background:#2fb3e8; color:#fff; font-size:10px; font-weight:800; min-width:20px; height:18px; border-radius:9px; display:flex; align-items:center; justify-content:center; padding:0 4px;">9+</span></div>
+      <div style="display:flex; align-items:center; gap:7px; cursor:pointer;">
+        <div style="width:40px; height:40px; border-radius:50%; background:linear-gradient(135deg,#e7a36b,#b9714a); border:2px solid #2a3f5c;"></div>
+        <span style="color:#e7e2ef; font-size:12px;">▾</span>
+      </div>
+      <div onClick="{{ toggleQA }}" style="background:linear-gradient(135deg,#1ed79a,#1ba0e6); color:#fff; font-weight:800; font-size:14px; letter-spacing:0.6px; padding:13px 20px; border-radius:26px; display:flex; align-items:center; gap:10px; cursor:pointer; box-shadow:0 4px 14px rgba(27,160,230,.32);">QUICK ACTIONS <span style="font-size:11px;">▾</span></div>
+      <sc-if value="{{ qaOpen }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute; top:70px; right:26px; width:248px; background:#fff; border-radius:14px; box-shadow:0 14px 40px rgba(16,28,52,.28); padding:8px; z-index:50;">
+          <div onClick="{{ startWizard }}" style="display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:10px; cursor:pointer;" style-hover="background:#eaf6fc;">
+            <span style="width:34px; height:34px; border-radius:9px; background:#e6f3fb; color:#1d3a5f; display:flex; align-items:center; justify-content:center; font-size:18px; flex:none;">＋</span>
+            <span style="font-weight:700; font-size:16px; color:#2b2535;">Add Request</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:10px; cursor:pointer;" style-hover="background:#eaf6fc;">
+            <span style="width:34px; height:34px; border-radius:9px; background:#dff0fb; color:#1493d6; display:flex; align-items:center; justify-content:center; font-size:18px; flex:none;">👤</span>
+            <span style="font-weight:700; font-size:16px; color:#2b2535;">Add Client</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:10px; cursor:pointer;" style-hover="background:#eaf6fc;">
+            <span style="width:34px; height:34px; border-radius:9px; background:#e7f5f1; color:#1b9e7a; display:flex; align-items:center; justify-content:center; font-size:18px; flex:none;">📄</span>
+            <span style="font-weight:700; font-size:16px; color:#2b2535;">Add Template</span>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+
+  <!-- ===== BOARD SCREEN ===== -->
+  <sc-if value="{{ isBoard }}" hint-placeholder-val="{{ true }}">
+  <div style="flex:1; display:flex; flex-direction:column; min-height:0;">
+    <!-- sub tabs -->
+    <div style="display:flex; align-items:center; padding:18px 30px 0; gap:34px; background:#eef0f3;">
+      <div style="display:flex; gap:32px;">
+        <div style="color:#1493d6; font-weight:800; font-size:15px; letter-spacing:0.8px; padding-bottom:12px; border-bottom:3px solid #1493d6;">REQUESTS</div>
+        <div style="color:#8b8595; font-weight:700; font-size:15px; letter-spacing:0.8px; padding-bottom:12px; cursor:pointer;">RECURRING/BULK</div>
+      </div>
+      <div style="flex:1;"></div>
+      <div style="display:flex; align-items:center; gap:16px; padding-bottom:8px;">
+        <div style="border:1.5px solid #1493d6; color:#1493d6; font-weight:800; font-size:13px; letter-spacing:0.5px; padding:9px 16px; border-radius:22px; display:flex; align-items:center; gap:7px; cursor:pointer;">⚡ ACTIVITY</div>
+        <div style="color:#6f6a7a; font-weight:800; font-size:20px; letter-spacing:1px; cursor:pointer;">⋯</div>
+      </div>
+    </div>
+
+    <!-- filter row -->
+    <div style="display:flex; align-items:center; padding:16px 30px; gap:18px; background:#eef0f3;">
+      <div style="border:1.5px solid #1493d6; color:#1493d6; font-weight:800; font-size:14px; padding:11px 18px; border-radius:26px; cursor:pointer;">Unassigned: Shown</div>
+      <div style="color:#4b4556; font-weight:700; font-size:15px; margin-left:6px;">Filter By:</div>
+      <div style="border:1.5px solid #d7d5dd; color:#5b5667; font-weight:600; font-size:14px; padding:11px 18px; border-radius:26px; display:flex; align-items:center; gap:10px; cursor:pointer; background:#fff;">Status <span style="font-size:11px; opacity:.7;">▾</span></div>
+      <div style="border:1.5px solid #d7d5dd; color:#5b5667; font-weight:600; font-size:14px; padding:11px 18px; border-radius:26px; display:flex; align-items:center; gap:10px; cursor:pointer; background:#fff;">Owner <span style="font-size:11px; opacity:.7;">▾</span></div>
+      <div style="border:1.5px solid #d7d5dd; color:#5b5667; font-weight:600; font-size:14px; padding:11px 18px; border-radius:26px; display:flex; align-items:center; gap:10px; cursor:pointer; background:#fff;">Client <span style="font-size:11px; opacity:.7;">▾</span></div>
+      <div style="flex:1;"></div>
+      <div style="color:#4b4556; font-weight:700; font-size:15px;">View:</div>
+      <div style="border:1.5px solid #1493d6; color:#1493d6; font-weight:800; font-size:14px; padding:11px 18px; border-radius:26px; display:flex; align-items:center; gap:10px; cursor:pointer;">⊞ Kanban <span style="font-size:11px;">▾</span></div>
+      <div style="background:#e4e3e9; border-radius:26px; padding:11px 18px; display:flex; align-items:center; gap:10px; min-width:230px;">
+        <input placeholder="Search requests..." style="border:none; background:transparent; outline:none; font-family:inherit; font-size:14px; color:#5b5667; flex:1; width:100%;" />
+        <span style="color:#8b8595; font-size:15px;">🔍</span>
+      </div>
+    </div>
+
+    <!-- columns -->
+    <div class="swnz-scroll" style="flex:1; display:flex; gap:18px; padding:6px 30px 30px; overflow-x:auto; min-height:0; align-items:flex-start;">
+      <sc-for list="{{ columns }}" as="col" hint-placeholder-count="5">
+        <div style="flex:none; width:330px; background:#e7e7ec; border-radius:14px; padding:14px; display:flex; flex-direction:column; gap:12px; max-height:100%;">
+          <div style="display:flex; align-items:center; gap:10px; padding:4px 4px 2px;">
+            <div style="font-weight:800; font-size:17px; color:#2b2535; flex:1;">{{ col.name }}</div>
+            <div style="border:1.5px solid #c3bdd0; color:#5b5667; font-weight:800; font-size:13px; min-width:30px; text-align:center; padding:2px 8px; border-radius:7px;">{{ col.count }}</div>
+            <div style="color:#8b8595; font-weight:800; font-size:18px; cursor:pointer;">⋯</div>
+          </div>
+
+          <sc-for list="{{ col.cards }}" as="card" hint-placeholder-count="3">
+            <!-- FEATURED (gradient) -->
+            <sc-if value="{{ card.featured }}" hint-placeholder-val="{{ true }}">
+              <div onClick="{{ card.onOpen }}" style="background:linear-gradient(150deg,#1ec98f 0%,#17a7c4 50%,#1b8fe0 100%); border-radius:13px; padding:16px 17px 17px; cursor:pointer; box-shadow:0 6px 16px rgba(23,143,196,.28);">
+                <div style="display:flex; align-items:flex-start; gap:8px;">
+                  <div style="color:#fff; font-weight:800; font-size:18px; line-height:1.25; flex:1;">{{ card.title }}</div>
+                  <div style="color:#ffffffcc; font-weight:800; font-size:18px;">⋯</div>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; margin-top:12px;">
+                  <div style="width:34px; height:34px; border-radius:50%; background:{{ card.avatarBg }}; color:#2b2535; font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center; flex:none;">{{ card.initials }}</div>
+                  <div style="color:#fff; font-weight:600; font-size:15px;">{{ card.owner }}</div>
+                  <div style="color:#ffffffcc; font-weight:600; font-size:14px;">{{ card.extra }}</div>
+                </div>
+                <div style="display:flex; margin-top:16px; border-top:1px solid #ffffff33; padding-top:14px;">
+                  <div style="flex:1; text-align:center;"><div style="color:#fff; font-weight:800; font-size:26px;">{{ card.approved }}</div><div style="color:#ffffffcc; font-weight:600; font-size:13px; margin-top:2px;">Approved</div></div>
+                  <div style="flex:1; text-align:center;"><div style="color:#fff; font-weight:800; font-size:26px;">{{ card.complete }}</div><div style="color:#ffffffcc; font-weight:600; font-size:13px; margin-top:2px;">Complete</div></div>
+                  <div style="flex:1; text-align:center;"><div style="color:#fff; font-weight:800; font-size:26px;">{{ card.todo }}</div><div style="color:#ffffffcc; font-weight:600; font-size:13px; margin-top:2px;">To Do</div></div>
+                </div>
+              </div>
+            </sc-if>
+
+            <!-- PLAIN (white) -->
+            <sc-if value="{{ card.plain }}" hint-placeholder-val="{{ true }}">
+              <div onClick="{{ card.onOpen }}" style="background:#fff; border:1px solid #e6e5ec; border-radius:13px; padding:16px 17px 17px; cursor:pointer; box-shadow:0 2px 6px rgba(40,30,60,.05);">
+                <div style="display:flex; align-items:flex-start; gap:8px;">
+                  <div style="color:#2b2535; font-weight:800; font-size:18px; line-height:1.25; flex:1;">{{ card.title }}</div>
+                  <div style="color:#9b95a5; font-weight:800; font-size:18px;">⋯</div>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; margin-top:12px;">
+                  <div style="width:34px; height:34px; border-radius:50%; background:{{ card.avatarBg }}; color:#2b2535; font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center; flex:none;">{{ card.initials }}</div>
+                  <div style="color:#3b3548; font-weight:600; font-size:15px;">{{ card.owner }}</div>
+                  <div style="color:#9b95a5; font-weight:600; font-size:14px;">{{ card.extra }}</div>
+                </div>
+
+                <sc-if value="{{ card.stats }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex; margin-top:16px; border-top:1px solid #ededf1; padding-top:14px;">
+                    <div style="flex:1; text-align:center;"><div style="color:#2b2535; font-weight:800; font-size:26px;">{{ card.approved }}</div><div style="color:#9b95a5; font-weight:600; font-size:13px; margin-top:2px;">Approved</div></div>
+                    <div style="flex:1; text-align:center;"><div style="color:#2b2535; font-weight:800; font-size:26px;">{{ card.complete }}</div><div style="color:#9b95a5; font-weight:600; font-size:13px; margin-top:2px;">Complete</div></div>
+                    <div style="flex:1; text-align:center;"><div style="color:#2b2535; font-weight:800; font-size:26px;">{{ card.todo }}</div><div style="color:#9b95a5; font-weight:600; font-size:13px; margin-top:2px;">To Do</div></div>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ card.progress }}" hint-placeholder-val="{{ true }}">
+                  <div>
+                    <div style="text-align:right; color:#6f6a7a; font-weight:700; font-size:15px; margin-top:14px;">{{ card.pctLabel }}</div>
+                    <div style="height:5px; background:#ececf0; border-radius:4px; margin-top:7px; overflow:hidden;">
+                      <div style="height:100%; width:{{ card.pctWidth }}; background:#1493d6; border-radius:4px;"></div>
+                    </div>
+                    <div style="display:flex; align-items:center; margin-top:15px;">
+                      <div style="background:{{ card.badgeBg }}; color:{{ card.badgeColor }}; font-weight:800; font-size:12px; letter-spacing:0.6px; padding:6px 12px; border-radius:7px;">{{ card.badge }}</div>
+                      <div style="flex:1;"></div>
+                      <div style="color:#8b8595; font-weight:700; font-size:14px;">Due: <span style="color:{{ card.dueColor }}; font-weight:800;">{{ card.due }}</span></div>
+                    </div>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
+          </sc-for>
+
+          <sc-if value="{{ col.isFirst }}" hint-placeholder-val="{{ true }}">
+            <div style="flex:1;"></div>
+            <div style="background:linear-gradient(135deg,#1ed79a,#1ba0e6); color:#fff; font-weight:800; font-size:13px; letter-spacing:0.6px; padding:14px; border-radius:26px; text-align:center; cursor:pointer; box-shadow:0 4px 12px rgba(27,160,230,.3);">GETTING STARTED - VALUE…</div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ===== ORANGA DETAIL ===== -->
+  <sc-if value="{{ showOranga }}" hint-placeholder-val="{{ true }}">
+  <div style="flex:1; display:flex; min-height:0;">
+    <!-- sidebar -->
+    <div style="width:625px; flex:none; background:#fff; border-right:1px solid #e6e5ec; display:flex; flex-direction:column; min-height:0;">
+      <div style="padding:26px 28px 18px; border-bottom:1px solid #eeedf1;">
+        <div style="font-weight:800; font-size:30px; line-height:1.2; color:#241d33;">Oranga School - Design brief</div>
+        <div style="display:flex; align-items:center; gap:12px; margin-top:14px;">
+          <span style="color:#8b8595; font-weight:600; font-size:15px;">Due: 12/07/2026</span>
+          <span style="background:#dbe6f6; color:#5570a0; font-weight:800; font-size:12px; letter-spacing:0.6px; padding:5px 11px; border-radius:7px;">ACTIVE</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:13px; margin-top:18px;">
+          <div style="width:46px; height:46px; border-radius:50%; background:#86d29a; color:#1f3a28; font-weight:800; font-size:15px; display:flex; align-items:center; justify-content:center; flex:none;">BL</div>
+          <div>
+            <div style="font-weight:700; font-size:17px; color:#2b2535;">Bridget Lummis &nbsp;-&nbsp; Oranga School</div>
+            <div style="color:#7b7686; font-size:14px; margin-top:3px;">✉ principal@oranga.school.nz</div>
+          </div>
+        </div>
+      </div>
+      <div class="swnz-scroll" style="flex:1; overflow-y:auto; padding:18px;">
+        <div style="background:#1d3a5f; border-radius:30px; display:flex; align-items:center; padding:13px 20px; color:#fff; gap:12px;">
+          <span style="font-size:13px;">▲</span>
+          <span style="font-weight:800; font-size:17px; flex:1;">1. Home page</span>
+          <span style="font-weight:700; font-size:15px;">1/11</span>
+          <span style="width:20px; height:20px; border:2px solid #ffffff99; border-radius:50%;"></span>
+        </div>
+        <div style="display:flex; align-items:center; padding:14px 20px 8px;">
+          <span style="font-weight:800; font-size:16px; color:#2b2535; flex:1;">1.1. Get started</span>
+          <span style="font-weight:700; font-size:15px; color:#4b4556; margin-right:12px;">1/11</span>
+          <span style="width:20px; height:20px; border:2px solid #cfcdd6; border-radius:50%;"></span>
+        </div>
+
+        <div style="padding-left:14px;">
+          <div style="display:flex; align-items:center; gap:14px; padding:11px 14px; border-left:2px solid #e4e2ea;">
+            <span style="font-size:16px; color:#3b3548; flex:1;">What is your website address?</span>
+            <span style="width:24px; height:24px; border-radius:50%; background:#28b463; color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800;">✓</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:14px; padding:11px 14px; border-left:2px solid #1d3a5f; background:#e9f5fc; border-radius:0 8px 8px 0;">
+            <span style="font-size:16px; color:#1d3a5f; font-weight:600; flex:1;">Please list at least 3 websites that …</span>
+            <span style="width:22px; height:22px; border:2px solid #a9d6ef; border-radius:50%;"></span>
+          </div>
+          <div style="display:flex; align-items:center; gap:14px; padding:11px 14px; border-left:2px solid #e4e2ea;"><span style="font-size:16px; color:#3b3548; flex:1;">What are your goals of the new w…</span><span style="width:22px; height:22px; border:2px solid #cfcdd6; border-radius:50%;"></span></div>
+          <div style="display:flex; align-items:center; gap:14px; padding:11px 14px; border-left:2px solid #e4e2ea;"><span style="font-size:16px; color:#3b3548; flex:1;">What colours represent your Scho…</span><span style="width:22px; height:22px; border:2px solid #cfcdd6; border-radius:50%;"></span></div>
+          <div style="display:flex; align-items:center; gap:14px; padding:11px 14px; border-left:2px solid #e4e2ea;"><span style="font-size:16px; color:#3b3548; flex:1;">Do you have a tagline, Values, Visi…</span><span style="width:22px; height:22px; border:2px solid #cfcdd6; border-radius:50%;"></span></div>
+          <div style="display:flex; align-items:center; gap:14px; padding:11px 14px; border-left:2px solid #e4e2ea;"><span style="font-size:16px; color:#3b3548; flex:1;">Logos, Brandkit, Stratgic Plan docs…</span><span style="width:22px; height:22px; border:2px solid #cfcdd6; border-radius:50%;"></span></div>
+          <div style="display:flex; align-items:center; gap:14px; padding:11px 14px; border-left:2px solid #e4e2ea;"><span style="font-size:16px; color:#3b3548; flex:1;">Main header images</span><span style="width:22px; height:22px; border:2px solid #cfcdd6; border-radius:50%;"></span></div>
+          <div style="display:flex; align-items:center; gap:14px; padding:11px 14px; border-left:2px solid #e4e2ea;"><span style="font-size:16px; color:#3b3548; flex:1;">What forms of communication an…</span><span style="width:22px; height:22px; border:2px solid #cfcdd6; border-radius:50%;"></span></div>
+          <div style="display:flex; align-items:center; gap:14px; padding:11px 14px; border-left:2px solid #e4e2ea;"><span style="font-size:16px; color:#3b3548; flex:1;">Ideally, when would you like to ha…</span><span style="width:22px; height:22px; border:2px solid #cfcdd6; border-radius:50%;"></span></div>
+          <div style="display:flex; align-items:center; gap:14px; padding:11px 14px; border-left:2px solid #e4e2ea;"><span style="font-size:16px; color:#3b3548; flex:1;">Do you have your web content rea…</span><span style="width:22px; height:22px; border:2px solid #cfcdd6; border-radius:50%;"></span></div>
+          <div style="display:flex; align-items:center; gap:14px; padding:11px 14px; border-left:2px solid #e4e2ea;"><span style="font-size:16px; color:#3b3548; flex:1;">Are you interested in moving to a …</span><span style="width:22px; height:22px; border:2px solid #cfcdd6; border-radius:50%;"></span></div>
+        </div>
+      </div>
+      <div style="padding:18px; border-top:1px solid #eeedf1;">
+        <div style="background:linear-gradient(135deg,#1ed79a,#1ba0e6); color:#fff; font-weight:800; font-size:13px; letter-spacing:0.6px; padding:14px; border-radius:26px; text-align:center; cursor:pointer; box-shadow:0 4px 12px rgba(27,160,230,.3);">GETTING STARTED - VALUE…</div>
+      </div>
+    </div>
+
+    <!-- right panel -->
+    <div style="flex:1; display:flex; flex-direction:column; min-height:0; background:#f3f3f6;">
+      <div style="display:flex; align-items:center; padding:22px 30px; gap:16px;">
+        <div onClick="{{ goBoard }}" style="width:48px; height:48px; border-radius:50%; background:#fff; border:1px solid #e1e0e7; display:flex; align-items:center; justify-content:center; color:#6f6a7a; font-size:20px; cursor:pointer; box-shadow:0 2px 5px rgba(0,0,0,.05);">‹</div>
+        <div style="flex:1;"></div>
+        <div style="border:1.5px solid #1493d6; color:#1493d6; font-weight:800; font-size:13px; letter-spacing:0.5px; padding:11px 18px; border-radius:22px; display:flex; align-items:center; gap:7px; cursor:pointer; background:#fff;">⚡ ACTIVITY</div>
+        <div style="background:#1d3a5f; color:#fff; font-weight:800; font-size:13px; letter-spacing:0.5px; padding:13px 22px; border-radius:26px; cursor:pointer;">APPROVE ALL SUBMITTED</div>
+        <div style="color:#6f6a7a; font-weight:800; font-size:20px; cursor:pointer;">⋯</div>
+      </div>
+      <div class="swnz-scroll" style="flex:1; overflow-y:auto; padding:0 40px 40px;">
+        <div style="display:flex; justify-content:center; margin-bottom:22px;">
+          <div style="border:1.5px solid #bcd4f0; color:#3f6cab; background:#eaf2fc; font-weight:700; font-size:16px; padding:9px 22px; border-radius:24px; display:flex; align-items:center; gap:10px;">Approve 0 / 1 <span style="font-size:11px;">▾</span></div>
+        </div>
+        <div style="background:#fff; border:1.5px solid #bfe0f2; border-radius:20px; padding:42px 46px; max-width:1500px; margin:0 auto; box-shadow:0 6px 22px rgba(60,40,90,.08);">
+          <div style="display:flex; gap:20px; align-items:flex-start;">
+            <div style="font-weight:800; font-size:28px; line-height:1.4; color:#241d33; flex:1;">Please list at least 3 websites that you like and specifically what you like about them. Be as specific as possible as this is probably the best way for us to determine what you are after.</div>
+            <span style="color:#9b95a5; font-size:20px; cursor:pointer;">⤢</span>
+          </div>
+          <div style="position:relative; margin-top:30px;">
+            <div style="min-height:280px; background:#f0f0f3; border:1px solid #e3e2e8; border-radius:10px; padding:18px 20px; color:#a8a4b0; font-size:18px;">Enter text here...</div>
+            <span style="position:absolute; top:-2px; right:-34px; color:#b5b1bd; font-size:18px;">⧉</span>
+          </div>
+          <div style="display:flex; align-items:center; margin-top:34px; gap:18px;">
+            <div style="background:#1d3a5f; color:#fff; font-weight:800; font-size:15px; letter-spacing:0.4px; padding:15px 26px; border-radius:28px; cursor:pointer;">SUBMIT FOR REVIEW</div>
+            <span style="color:#6f6a7a; font-size:17px;">or</span>
+            <span style="color:#1493d6; font-weight:700; font-size:17px; text-decoration:underline; cursor:pointer;">Save draft and continue</span>
+            <div style="flex:1;"></div>
+            <div style="border:1.5px solid #1d3a5f; color:#1d3a5f; font-weight:800; font-size:13px; letter-spacing:0.6px; padding:12px 22px; border-radius:24px; cursor:pointer;">COMMENTS</div>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:center; margin-top:30px;">
+          <div style="width:240px; height:8px; background:#e4e2ea; border-radius:6px; overflow:hidden;"><div style="width:24%; height:100%; background:linear-gradient(90deg,#1ed79a,#1ba0e6); border-radius:6px;"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ===== ROSS DETAIL ===== -->
+  <sc-if value="{{ showRoss }}" hint-placeholder-val="{{ true }}">
+  <div style="flex:1; display:flex; min-height:0;">
+    <!-- sidebar -->
+    <div style="width:625px; flex:none; background:#fff; border-right:1px solid #e6e5ec; display:flex; flex-direction:column; min-height:0;">
+      <div style="padding:26px 28px 18px; border-bottom:1px solid #eeedf1;">
+        <div style="font-weight:800; font-size:30px; line-height:1.2; color:#241d33;">Ross School - inner pages content</div>
+        <div style="display:flex; align-items:center; gap:12px; margin-top:14px;">
+          <span style="color:#8b8595; font-weight:600; font-size:15px;">Due: 01/03/2026</span>
+          <span style="background:#f7d9d0; color:#c9491f; font-weight:800; font-size:12px; letter-spacing:0.6px; padding:5px 11px; border-radius:7px;">OVERDUE</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:13px; margin-top:18px;">
+          <div style="width:46px; height:46px; border-radius:50%; background:#c9a8e9; color:#3a2456; font-weight:800; font-size:15px; display:flex; align-items:center; justify-content:center; flex:none;">JL</div>
+          <div>
+            <div style="font-weight:700; font-size:17px; color:#2b2535;">Jodie Linklater &nbsp;-&nbsp; Ross School</div>
+            <div style="color:#7b7686; font-size:14px; margin-top:3px;">✉ principal@ross.school.nz</div>
+          </div>
+        </div>
+      </div>
+      <div class="swnz-scroll" style="flex:1; overflow-y:auto; padding:18px;">
+        <div style="background:#1d3a5f; border-radius:30px; display:flex; align-items:center; padding:13px 20px; color:#fff; gap:12px;">
+          <span style="font-size:13px;">▲</span>
+          <span style="font-weight:800; font-size:17px; flex:1;">1. Home</span>
+          <span style="font-weight:700; font-size:15px;">2/2</span>
+          <span style="width:22px; height:22px; border-radius:50%; background:#28b463; color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800;">✓</span>
+        </div>
+        <div style="display:flex; align-items:center; padding:14px 20px 8px;">
+          <span style="font-weight:800; font-size:16px; color:#2b2535; flex:1;">1.1. Homepage welcome text</span>
+          <span style="font-weight:700; font-size:15px; color:#4b4556; margin-right:12px;">2/2</span>
+          <span style="width:22px; height:22px; border-radius:50%; background:#28b463; color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800;">✓</span>
+        </div>
+        <div style="padding-left:14px;">
+          <div style="display:flex; align-items:center; gap:14px; padding:11px 14px; border-left:2px solid #1d3a5f; background:#e9f5fc; border-radius:0 8px 8px 0;">
+            <span style="font-size:16px; color:#1d3a5f; font-weight:600; flex:1;">Text for this page</span>
+            <span style="width:24px; height:24px; border-radius:50%; background:#28b463; color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800;">✓</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:14px; padding:11px 14px; border-left:2px solid #e4e2ea;">
+            <span style="font-size:16px; color:#3b3548; flex:1;">Images for this page</span>
+            <span style="width:24px; height:24px; border-radius:50%; background:#28b463; color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800;">✓</span>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; padding:18px 20px 16px; border-top:1px solid #f0eff3; margin-top:8px;"><span style="font-size:13px; color:#7b7686; margin-right:14px;">▼</span><span style="font-weight:800; font-size:17px; color:#2b2535; flex:1;">2. Our School</span><span style="font-weight:700; font-size:15px; color:#4b4556; margin-right:12px;">2/15</span><span style="width:22px; height:22px; border:2px solid #cfcdd6; border-radius:50%;"></span></div>
+        <div style="display:flex; align-items:center; padding:16px 20px; border-top:1px solid #f0eff3;"><span style="font-size:13px; color:#7b7686; margin-right:14px;">▼</span><span style="font-weight:800; font-size:17px; color:#2b2535; flex:1;">3. Our Learning</span><span style="font-weight:700; font-size:15px; color:#4b4556; margin-right:12px;">3/9</span><span style="width:22px; height:22px; border:2px solid #cfcdd6; border-radius:50%;"></span></div>
+        <div style="display:flex; align-items:center; padding:16px 20px; border-top:1px solid #f0eff3;"><span style="font-size:13px; color:#7b7686; margin-right:14px;">▼</span><span style="font-weight:800; font-size:17px; color:#2b2535; flex:1;">4. Whānau Information</span><span style="font-weight:700; font-size:15px; color:#4b4556; margin-right:12px;">1/15</span><span style="width:22px; height:22px; border:2px solid #cfcdd6; border-radius:50%;"></span></div>
+        <div style="display:flex; align-items:center; padding:16px 20px; border-top:1px solid #f0eff3;"><span style="font-size:13px; color:#7b7686; margin-right:14px;">▼</span><span style="font-weight:800; font-size:17px; color:#2b2535; flex:1;">5. News &amp; Events</span><span style="font-weight:700; font-size:15px; color:#4b4556; margin-right:12px;">0/2</span><span style="width:22px; height:22px; border:2px solid #cfcdd6; border-radius:50%;"></span></div>
+        <div style="display:flex; align-items:center; padding:16px 20px; border-top:1px solid #f0eff3;"><span style="font-size:13px; color:#7b7686; margin-right:14px;">▼</span><span style="font-weight:800; font-size:17px; color:#2b2535; flex:1;">6. Contact</span><span style="font-weight:700; font-size:15px; color:#4b4556; margin-right:12px;">4/5</span><span style="width:22px; height:22px; border:2px solid #cfcdd6; border-radius:50%;"></span></div>
+      </div>
+      <div style="padding:18px; border-top:1px solid #eeedf1;">
+        <div style="background:linear-gradient(135deg,#1ed79a,#1ba0e6); color:#fff; font-weight:800; font-size:13px; letter-spacing:0.6px; padding:14px; border-radius:26px; text-align:center; cursor:pointer; box-shadow:0 4px 12px rgba(27,160,230,.3);">GETTING STARTED - VALUE…</div>
+      </div>
+    </div>
+
+    <!-- right panel -->
+    <div style="flex:1; display:flex; flex-direction:column; min-height:0; background:#f3f3f6;">
+      <div style="display:flex; align-items:center; padding:22px 30px; gap:16px;">
+        <div onClick="{{ goBoard }}" style="width:48px; height:48px; border-radius:50%; background:#fff; border:1px solid #e1e0e7; display:flex; align-items:center; justify-content:center; color:#6f6a7a; font-size:20px; cursor:pointer; box-shadow:0 2px 5px rgba(0,0,0,.05);">‹</div>
+        <div style="flex:1;"></div>
+        <div style="border:1.5px solid #1493d6; color:#1493d6; font-weight:800; font-size:13px; letter-spacing:0.5px; padding:11px 18px; border-radius:22px; display:flex; align-items:center; gap:7px; cursor:pointer; background:#fff;">⚡ ACTIVITY</div>
+        <div style="background:#1d3a5f; color:#fff; font-weight:800; font-size:13px; letter-spacing:0.5px; padding:13px 22px; border-radius:26px; cursor:pointer;">APPROVE ALL SUBMITTED</div>
+        <div style="color:#6f6a7a; font-weight:800; font-size:20px; cursor:pointer;">⋯</div>
+      </div>
+      <div class="swnz-scroll" style="flex:1; overflow-y:auto; padding:0 40px 40px;">
+        <div style="display:flex; align-items:center; max-width:1500px; margin:0 auto 4px;">
+          <div style="flex:1; display:flex; justify-content:center;">
+            <div style="border:1.5px solid #bcd4f0; color:#3f6cab; background:#eaf2fc; font-weight:700; font-size:16px; padding:9px 16px; border-radius:24px; display:flex; align-items:center; gap:12px;">Approve 1 / 2 <span style="font-size:12px;">⌃</span> <span style="font-size:12px;">▾</span></div>
+          </div>
+          <div style="color:#5b5667; font-weight:700; font-size:16px; display:flex; align-items:center; gap:6px; cursor:pointer;">Our School <span style="font-size:13px;">›</span></div>
+        </div>
+        <div style="max-width:1500px; margin:18px auto 0;">
+          <div style="display:flex; align-items:center; gap:14px; padding:0 4px 16px; border-bottom:1px solid #e4e3e9;">
+            <div style="font-weight:800; font-size:26px; color:#241d33; flex:1;">Homepage welcome text</div>
+            <span style="width:34px; height:34px; border-radius:50%; border:1.5px solid #d8d6df; display:flex; align-items:center; justify-content:center; color:#9b95a5; font-size:15px; cursor:pointer;">↑</span>
+            <span style="width:34px; height:34px; border-radius:50%; border:1.5px solid #d8d6df; display:flex; align-items:center; justify-content:center; color:#9b95a5; font-size:15px; cursor:pointer;">↓</span>
+            <span style="width:34px; height:34px; border-radius:50%; border:1.5px solid #d8d6df; display:flex; align-items:center; justify-content:center; color:#9b95a5; font-size:15px; cursor:pointer;">⌂</span>
+          </div>
+        </div>
+        <div style="background:#fff; border:2px solid #b5e6c4; border-radius:20px; padding:30px 36px 40px; max-width:1500px; margin:24px auto 0; box-shadow:0 6px 22px rgba(60,40,90,.06);">
+          <div style="display:flex; align-items:center; gap:14px; background:#e7f7ec; border-radius:12px; padding:16px 20px;">
+            <span style="width:30px; height:30px; border-radius:50%; background:#28b463; color:#fff; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:800; flex:none;">✓</span>
+            <span style="color:#1f8a4c; font-weight:700; font-size:17px;">The answer is saved and submitted for approval.</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:16px; margin-top:30px;">
+            <div style="font-weight:800; font-size:23px; color:#241d33; flex:1;">Text for this page</div>
+            <span style="color:#9b95a5; font-size:19px; cursor:pointer;">⤢</span>
+          </div>
+          <div style="border:1px solid #e3e2e8; border-radius:12px; margin-top:18px; overflow:hidden;">
+            <div style="display:flex; align-items:center; gap:18px; padding:11px 16px; border-bottom:1px solid #ececf0; background:#fbfbfc; color:#9b95a5; font-size:16px;">
+              <div style="border:1px solid #d8d6df; border-radius:6px; padding:6px 12px; display:flex; align-items:center; gap:18px; color:#4b4556; font-weight:600; font-size:15px;">Normal <span style="font-size:11px;">▾</span></div>
+              <span style="font-weight:800; color:#cfcdd6;">B</span>
+              <span style="font-style:italic; color:#cfcdd6;">I</span>
+              <span style="text-decoration:underline; color:#cfcdd6;">U</span>
+              <span style="color:#cfcdd6;">☰</span>
+              <span style="color:#cfcdd6;">⇥</span>
+              <span style="color:#cfcdd6;">⇤</span>
+              <span style="color:#cfcdd6;">≡</span>
+              <span style="color:#cfcdd6;">≣</span>
+              <span style="color:#cfcdd6;">⊟</span>
+              <span style="color:#cfcdd6;">🔗</span>
+              <span style="color:#cfcdd6;">☺</span>
+            </div>
+            <div style="padding:24px 26px; color:#2b2535; font-size:18px; line-height:1.7;">
+              <p style="margin:0 0 16px;">Nau mai, haere mai – Welcome to Ross School</p>
+              <p style="margin:0 0 16px;">Located on the beautiful West Coast, our community is built on a proud gold mining history, famously home to the 1909 discovery of New Zealand's largest gold nugget, the "Honourable Roddy." Having proudly celebrated our 150th anniversary in 2025, we continue that rich legacy of learning and community spirit today.</p>
+              <p style="margin:0 0 16px;">Just as the early miners searched for treasure, our mission is to uncover the "gold" within every single student by providing a genuinely welcoming, inclusive, and supportive environment where every child is valued.</p>
+              <p style="margin:0 0 16px;">Whether your family has been on the Coast for generations or you are brand new to town, we are absolutely thrilled to have you join our school family.</p>
+              <p style="margin:0 0 16px;">Ngā mihi nui,</p>
+              <p style="margin:0;">The Ross School Team</p>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:center; margin-top:30px;">
+          <div style="width:240px; height:8px; background:#e4e2ea; border-radius:6px; overflow:hidden;"><div style="width:60%; height:100%; background:linear-gradient(90deg,#1ed79a,#1ba0e6); border-radius:6px;"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ===== ADD REQUEST WIZARD ===== -->
+  <sc-if value="{{ isWizard }}" hint-placeholder-val="{{ true }}">
+  <div style="flex:1; display:flex; flex-direction:column; min-height:0; background:#f3f3f6;">
+    <!-- stepper -->
+    <div style="background:#fff; border-bottom:1px solid #e6e5ec; display:flex; align-items:center; padding:16px 26px; gap:16px; flex:none;">
+      <div onClick="{{ back }}" style="width:44px; height:44px; border-radius:50%; background:#fff; border:1px solid #e1e0e7; display:flex; align-items:center; justify-content:center; color:#6f6a7a; font-size:19px; cursor:pointer; flex:none; box-shadow:0 2px 5px rgba(0,0,0,.05);">‹</div>
+      <div style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px;">
+        <sc-for list="{{ steps }}" as="st" hint-placeholder-count="5">
+          <div onClick="{{ st.onClick }}" style="display:flex; align-items:center; gap:12px; cursor:pointer;">
+            <sc-if value="{{ st.active }}" hint-placeholder-val="{{ true }}">
+              <div style="width:34px; height:34px; border-radius:50%; background:#1493d6; color:#fff; font-weight:800; font-size:16px; display:flex; align-items:center; justify-content:center;">{{ st.num }}</div>
+              <span style="font-weight:800; font-size:21px; color:#241d33;">{{ st.label }}</span>
+            </sc-if>
+            <sc-if value="{{ st.inactive }}" hint-placeholder-val="{{ true }}">
+              <div style="width:34px; height:34px; border-radius:50%; border:2px solid #cfcdd6; color:#9b95a5; font-weight:800; font-size:16px; display:flex; align-items:center; justify-content:center;">{{ st.num }}</div>
+              <span style="font-weight:700; font-size:21px; color:#9b95a5;">{{ st.label }}</span>
+            </sc-if>
+            <span style="color:#cfcdd6; font-size:22px; margin:0 8px;">{{ st.sep }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div onClick="{{ nextAction }}" style="background:{{ nextBg }}; color:{{ nextColor }}; font-weight:800; font-size:14px; letter-spacing:0.6px; padding:13px 22px; border-radius:26px; cursor:pointer; display:flex; align-items:center; gap:8px; flex:none;">{{ nextLabel }} ›</div>
+    </div>
+
+    <!-- STEP 1: TEMPLATES -->
+    <sc-if value="{{ stepTemplates }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:1; display:flex; min-height:0;">
+        <div style="width:420px; flex:none; background:#fff; border-right:1px solid #e6e5ec; display:flex; flex-direction:column; min-height:0;">
+          <div style="padding:22px 26px 10px; color:#9b95a5; font-weight:800; font-size:13px; letter-spacing:1.2px;">TEMPLATE GALLERY</div>
+          <div class="swnz-scroll" style="flex:1; overflow-y:auto; padding:6px 14px 14px;">
+            <sc-for list="{{ galleryCats }}" as="cat" hint-placeholder-count="8">
+              <div style="display:flex; align-items:center; gap:15px; padding:12px 14px; border-radius:10px; cursor:pointer;" style-hover="background:#f5f4f8;">
+                <span style="width:13px; height:13px; border-radius:50%; background:{{ cat.dot }}; flex:none;"></span>
+                <span style="font-weight:700; font-size:19px; color:#2b2535;">{{ cat.name }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div class="swnz-scroll" style="flex:1; overflow-y:auto; padding:28px 36px 50px;">
+          <div onClick="{{ startScratch }}" style="display:inline-block; background:#1d3a5f; color:#fff; font-weight:800; font-size:15px; letter-spacing:0.6px; padding:16px 28px; border-radius:28px; cursor:pointer;">START FROM SCRATCH</div>
+          <div style="background:#fff; border:1px solid #e3e2e8; border-radius:14px; padding:16px 22px; display:flex; align-items:center; gap:12px; margin-top:26px;">
+            <input placeholder="Search for a template..." style="border:none; outline:none; font-family:inherit; font-size:18px; color:#5b5667; flex:1; background:transparent; width:100%;" />
+            <span style="color:#9b95a5; font-size:18px;">🔍</span>
+          </div>
+          <div style="font-weight:800; font-size:27px; color:#241d33; margin:36px 0 18px;">My Templates</div>
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:22px;">
+            <sc-for list="{{ myTemplates }}" as="t" hint-placeholder-count="3">
+              <div onClick="{{ pickTemplate }}" style="background:#fff; border:1px solid #e9e8ee; border-radius:14px; padding:24px; min-height:210px; display:flex; flex-direction:column; cursor:pointer; box-shadow:0 2px 8px rgba(40,30,60,.05);">
+                <div style="display:flex; gap:16px; align-items:flex-start;">
+                  <div style="width:56px; height:56px; border-radius:12px; background:#e7f5f1; display:flex; align-items:center; justify-content:center; font-size:26px; flex:none;">🏠</div>
+                  <div style="font-weight:800; font-size:20px; color:#241d33; line-height:1.3;">{{ t.title }}</div>
+                </div>
+                <div style="color:#9b95a5; font-size:16px; margin-top:16px; flex:1;">{{ t.desc }}</div>
+                <div style="color:#b5b1bd; font-size:14px; text-align:right;">Last Updated: {{ t.date }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="font-weight:800; font-size:27px; color:#241d33; margin:40px 0 18px;">Accounting</div>
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:22px;">
+            <sc-for list="{{ acctTemplates }}" as="t" hint-placeholder-count="3">
+              <div onClick="{{ pickTemplate }}" style="background:#fff; border:1px solid #e9e8ee; border-radius:14px; padding:24px; min-height:210px; display:flex; flex-direction:column; cursor:pointer; box-shadow:0 2px 8px rgba(40,30,60,.05);">
+                <div style="display:flex; gap:16px; align-items:flex-start;">
+                  <div style="width:56px; height:56px; border-radius:12px; background:{{ t.iconBg }}; display:flex; align-items:center; justify-content:center; font-size:24px; flex:none;">{{ t.icon }}</div>
+                  <div style="font-weight:800; font-size:19px; color:#241d33; line-height:1.3;">{{ t.title }}</div>
+                </div>
+                <div style="color:#9b95a5; font-size:15px; margin-top:16px; line-height:1.55; flex:1;">{{ t.desc }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- STEP 2: ESSENTIALS -->
+    <sc-if value="{{ stepEssentials }}" hint-placeholder-val="{{ true }}">
+      <div class="swnz-scroll" style="flex:1; overflow-y:auto; padding:38px; display:flex; justify-content:center;">
+        <div style="width:760px; max-width:100%; background:#fff; border:1px solid #e9e8ee; border-radius:18px; padding:38px 42px; box-shadow:0 4px 16px rgba(40,30,60,.06); height:fit-content;">
+          <div style="font-weight:800; font-size:28px; color:#241d33;">Request essentials</div>
+          <div style="color:#8b8595; font-size:16px; margin:6px 0 30px;">The basics — name it, choose the client, set a due date.</div>
+
+          <div style="font-weight:700; font-size:15px; color:#4b4556; margin-bottom:9px;">Request name</div>
+          <input value="SchoolName - inner pages content" style="width:100%; border:1px solid #e1e0e7; border-radius:10px; padding:14px 16px; font-family:inherit; font-size:17px; color:#2b2535; outline:none; margin-bottom:24px;" />
+
+          <div style="font-weight:700; font-size:15px; color:#4b4556; margin-bottom:9px;">Client</div>
+          <div style="border:1px solid #e1e0e7; border-radius:10px; padding:14px 16px; font-size:17px; color:#8b8595; display:flex; align-items:center; margin-bottom:24px;"><span style="flex:1;">Select a client…</span><span style="font-size:12px;">▾</span></div>
+
+          <div style="display:flex; gap:24px;">
+            <div style="flex:1;">
+              <div style="font-weight:700; font-size:15px; color:#4b4556; margin-bottom:9px;">Due date</div>
+              <div style="border:1px solid #e1e0e7; border-radius:10px; padding:14px 16px; font-size:17px; color:#2b2535; display:flex; align-items:center;"><span style="flex:1;">01/03/2026</span><span>📅</span></div>
+            </div>
+            <div style="flex:1;">
+              <div style="font-weight:700; font-size:15px; color:#4b4556; margin-bottom:9px;">Folder</div>
+              <div style="border:1px solid #e1e0e7; border-radius:10px; padding:14px 16px; font-size:17px; color:#2b2535; display:flex; align-items:center;"><span style="flex:1;">📁 Default Folder</span><span style="font-size:12px;">▾</span></div>
+            </div>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:14px; margin-top:28px; padding-top:24px; border-top:1px solid #f0eff3;">
+            <div style="width:50px; height:28px; border-radius:16px; background:#1d3a5f; position:relative;"><div style="width:22px; height:22px; border-radius:50%; background:#fff; position:absolute; top:3px; left:25px;"></div></div>
+            <span style="font-weight:600; font-size:17px; color:#2b2535;">Send automated reminders to the client</span>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- STEP 3: BUILDER -->
+    <sc-if value="{{ stepBuilder }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:1; display:flex; min-height:0;">
+        <!-- pages -->
+        <div style="width:330px; flex:none; background:#fff; border-right:1px solid #e6e5ec; display:flex; flex-direction:column; min-height:0;">
+          <div style="display:flex; align-items:center; padding:22px 22px 14px;">
+            <span style="font-weight:800; font-size:14px; letter-spacing:1.2px; color:#6f6a7a; flex:1;">PAGES</span>
+            <span style="color:#1ba0e6; font-size:21px;">☁</span>
+          </div>
+          <div class="swnz-scroll" style="flex:1; overflow-y:auto; padding:0 14px;">
+            <sc-for list="{{ builderPages }}" as="pg" hint-placeholder-count="4">
+              <div onClick="{{ pg.onSelect }}" style="display:flex; align-items:center; gap:10px; padding:11px 12px; border-radius:8px; cursor:pointer;" style-hover="background:#f5f4f8;">
+                <span style="font-weight:800; font-size:18px; flex:1; color:{{ pg.color }};">{{ pg.num }}. {{ pg.name }}</span>
+                <span style="color:#b5b1bd; font-weight:800; font-size:17px;">⋯</span>
+              </div>
+              <sc-for list="{{ pg.sub }}" as="sec" hint-placeholder-count="0">
+                <div style="display:flex; align-items:center; gap:10px; padding:8px 12px 8px 24px;">
+                  <span style="font-weight:700; font-size:16px; color:#3b3548; flex:1;">{{ sec.num }} {{ sec.name }}</span>
+                  <span style="color:#b5b1bd; font-weight:800; font-size:16px;">⋯</span>
+                </div>
+                <sc-for list="{{ sec.fieldNames }}" as="fn" hint-placeholder-count="0">
+                  <div style="padding:6px 12px 6px 36px; color:#7b7686; font-size:15px;">{{ fn }}</div>
+                </sc-for>
+              </sc-for>
+            </sc-for>
+            <div onClick="{{ addPage }}" style="display:inline-flex; align-items:center; gap:10px; border:1.5px solid #1d3a5f; color:#1d3a5f; font-weight:800; font-size:14px; letter-spacing:0.5px; padding:11px 18px; border-radius:24px; margin:16px 4px; cursor:pointer;">ADD A PAGE <span style="font-size:11px;">▾</span></div>
+          </div>
+          <div style="padding:16px;"><div style="background:linear-gradient(135deg,#1ed79a,#1ba0e6); color:#fff; font-weight:800; font-size:13px; letter-spacing:0.6px; padding:13px; border-radius:24px; text-align:center;">GETTING STARTED - VALUE…</div></div>
+        </div>
+
+        <!-- main -->
+        <div class="swnz-scroll" style="flex:1; overflow-y:auto; padding:28px 36px 60px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div style="font-weight:800; font-size:30px; color:#241d33; flex:1;">{{ builderTitle }}</div>
+            <span style="color:#9b95a5; font-weight:800; font-size:21px;">⋯</span>
+          </div>
+          <div style="display:flex; align-items:center; margin-top:18px;">
+            <div style="display:flex; align-items:center; gap:9px; color:#6f6a7a; font-weight:600; font-size:16px;"><span>📁</span> Default Folder <span style="font-size:11px;">▾</span></div>
+            <div style="flex:1;"></div>
+            <span style="color:#1493d6; font-weight:700; font-size:16px; text-decoration:underline; cursor:pointer;">Edit request instructions</span>
+          </div>
+
+          <div style="display:flex; align-items:center; margin-top:30px;">
+            <div style="font-weight:800; font-size:24px; color:#241d33; flex:1;">{{ builderPageHeader }}</div>
+            <span style="color:#b5b1bd; font-size:19px; margin-right:16px;">⚙</span>
+            <span style="color:#b5b1bd; font-weight:800; font-size:19px;">⋯</span>
+          </div>
+
+          <sc-for list="{{ activeSections }}" as="sec" hint-placeholder-count="1">
+            <div style="background:#fff; border:1.5px solid #bfe0f2; border-radius:16px; padding:24px; margin-top:16px;">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div style="font-weight:800; font-size:20px; color:#241d33;">{{ sec.num }} {{ sec.name }}</div>
+                <span style="color:#9b95a5; font-size:15px;">✎</span>
+                <div style="flex:1;"></div>
+                <span style="color:#b5b1bd; font-size:18px; margin-right:12px;">⚙</span>
+                <span style="color:#b5b1bd; font-weight:800; font-size:18px;">⋯</span>
+              </div>
+              <sc-for list="{{ sec.fields }}" as="f" hint-placeholder-count="2">
+                <sc-if value="{{ f.hasTag }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:inline-block; background:#e6f3fb; color:#1d3a5f; font-weight:600; font-size:14px; padding:5px 12px; border-radius:7px; margin:16px 0 0;">{{ f.tag }}</div>
+                </sc-if>
+                <div style="background:#fff; border:1px solid #ededf1; border-radius:10px; padding:16px 18px; display:flex; align-items:center; gap:14px; margin-top:12px; box-shadow:0 1px 3px rgba(0,0,0,.04);">
+                  <span style="color:#1d3a5f; font-size:18px;">{{ f.icon }}</span>
+                  <span style="font-weight:600; font-size:18px; color:#2b2535; flex:1;">{{ f.label }}</span>
+                  <span style="color:#cfcdd6; font-size:17px; margin-right:10px;">⚙</span>
+                  <span style="color:#cfcdd6; font-weight:800; font-size:17px;">⋯</span>
+                </div>
+              </sc-for>
+              <div style="display:flex; gap:14px; margin-top:22px;">
+                <div onClick="{{ openFieldModal }}" style="border:1.5px solid #1d3a5f; color:#1d3a5f; font-weight:800; font-size:13px; letter-spacing:0.5px; padding:12px 20px; border-radius:24px; cursor:pointer;">ADD A FIELD</div>
+                <div style="border:1.5px solid #1493d6; color:#1493d6; font-weight:800; font-size:13px; letter-spacing:0.5px; padding:12px 20px; border-radius:24px; cursor:pointer;">ADD FIELDS FROM AI PROMPT</div>
+              </div>
+            </div>
+          </sc-for>
+
+          <div style="display:flex; justify-content:center; margin-top:30px;">
+            <div onClick="{{ addSection }}" style="border:1.5px solid #1d3a5f; color:#1d3a5f; font-weight:800; font-size:14px; letter-spacing:0.5px; padding:14px 26px; border-radius:26px; cursor:pointer; display:flex; align-items:center; gap:10px; background:#fff;">ADD A SECTION <span style="font-size:11px;">▾</span></div>
+          </div>
+        </div>
+
+        <!-- section options -->
+        <div style="width:420px; flex:none; background:#fff; border-left:1px solid #e6e5ec; padding:24px 26px; min-height:0;">
+          <div style="display:flex; align-items:flex-start;">
+            <div style="flex:1;">
+              <div style="color:#9b95a5; font-weight:800; font-size:13px; letter-spacing:1.2px;">SECTION OPTIONS</div>
+              <div style="font-weight:800; font-size:24px; color:#241d33; margin-top:8px;">Homepage welcome text</div>
+            </div>
+            <span style="color:#9b95a5; font-size:22px; cursor:pointer;">✕</span>
+          </div>
+          <sc-for list="{{ opts }}" as="o" hint-placeholder-count="3">
+            <div style="display:flex; align-items:center; padding:20px 0; border-bottom:1px solid #f0eff3;">
+              <span style="font-weight:600; font-size:19px; color:#2b2535; flex:1;">{{ o.label }}</span>
+              <div onClick="{{ o.onToggle }}" style="width:50px; height:28px; border-radius:16px; background:{{ o.trackBg }}; position:relative; cursor:pointer;">
+                <div style="width:22px; height:22px; border-radius:50%; background:#fff; position:absolute; top:3px; left:{{ o.knobLeft }}; box-shadow:0 1px 3px rgba(0,0,0,.25);"></div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- STEP 4: PREVIEW -->
+    <sc-if value="{{ stepPreview }}" hint-placeholder-val="{{ true }}">
+      <div class="swnz-scroll" style="flex:1; overflow-y:auto; padding:40px; display:flex; justify-content:center;">
+        <div style="width:900px; max-width:100%;">
+          <div style="font-weight:800; font-size:30px; color:#241d33;">{{ builderTitle }}</div>
+          <div style="color:#8b8595; font-size:16px; margin:8px 0 26px;">This is how your client will see the request.</div>
+          <sc-for list="{{ activeSections }}" as="sec" hint-placeholder-count="1">
+            <div style="background:#fff; border:1px solid #e9e8ee; border-radius:16px; padding:32px 36px; margin-bottom:20px; box-shadow:0 2px 10px rgba(40,30,60,.05);">
+              <div style="font-weight:800; font-size:22px; color:#241d33; margin-bottom:22px;">{{ sec.name }}</div>
+              <sc-for list="{{ sec.fields }}" as="f" hint-placeholder-count="2">
+                <div style="margin-bottom:24px;">
+                  <div style="font-weight:700; font-size:18px; color:#2b2535; margin-bottom:10px;">{{ f.label }}</div>
+                  <div style="min-height:90px; background:#f3f3f6; border:1px solid #e3e2e8; border-radius:10px; padding:14px 16px; color:#a8a4b0; font-size:16px;">Client response…</div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- STEP 5: FINALIZE -->
+    <sc-if value="{{ stepFinalize }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:1; display:flex; align-items:center; justify-content:center; padding:40px;">
+        <div style="width:620px; max-width:100%; background:#fff; border:1px solid #e9e8ee; border-radius:18px; padding:44px; text-align:center; box-shadow:0 4px 16px rgba(40,30,60,.06);">
+          <div style="width:74px; height:74px; border-radius:50%; background:#e7f5f1; display:flex; align-items:center; justify-content:center; font-size:34px; margin:0 auto 22px;">📨</div>
+          <div style="font-weight:800; font-size:28px; color:#241d33; margin-bottom:12px;">Ready to send</div>
+          <div style="color:#8b8595; font-size:17px; line-height:1.6; margin-bottom:30px;">Your request is ready. Send it to your client and we'll notify them by email, then keep you posted as they fill it in.</div>
+          <div onClick="{{ goBoard }}" style="display:inline-block; background:linear-gradient(135deg,#1ed79a,#1ba0e6); color:#fff; font-weight:800; font-size:15px; letter-spacing:0.6px; padding:16px 34px; border-radius:28px; cursor:pointer; box-shadow:0 4px 14px rgba(27,160,230,.32);">SEND REQUEST</div>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+  </sc-if>
+
+  <!-- ===== FIELD TYPE MODAL ===== -->
+  <sc-if value="{{ fieldModalOpen }}" hint-placeholder-val="{{ true }}">
+  <div style="position:fixed; inset:0; background:rgba(16,28,52,.55); display:flex; align-items:flex-start; justify-content:center; z-index:60; padding:40px 20px; overflow:auto;">
+    <div style="background:#fff; border-radius:18px; width:1180px; max-width:100%; padding:30px 34px 40px;">
+      <div style="display:flex; align-items:center; margin-bottom:22px;">
+        <div style="flex:1; text-align:center; font-weight:800; font-size:26px; color:#241d33; padding-left:30px;">Select a field type</div>
+        <span onClick="{{ closeFieldModal }}" style="color:#9b95a5; font-size:24px; cursor:pointer;">✕</span>
+      </div>
+      <div style="background:#fff; border:1px solid #e3e2e8; border-radius:12px; padding:15px 20px; display:flex; align-items:center; gap:12px; margin-bottom:18px;">
+        <input placeholder="Search for a field type..." style="border:none; outline:none; font-family:inherit; font-size:18px; color:#5b5667; flex:1; background:transparent; width:100%;" />
+        <span style="color:#9b95a5; font-size:18px;">🔍</span>
+      </div>
+      <sc-for list="{{ fieldGroups }}" as="grp" hint-placeholder-count="4">
+        <div style="font-weight:800; font-size:14px; letter-spacing:1.2px; color:#9b95a5; margin:20px 0 14px;">{{ grp.group }}</div>
+        <div style="display:grid; grid-template-columns:repeat(6,1fr); gap:14px;">
+          <sc-for list="{{ grp.items }}" as="it" hint-placeholder-count="6">
+            <div onClick="{{ it.onPick }}" style="background:#f3f3f6; border-radius:12px; padding:22px 10px; display:flex; flex-direction:column; align-items:center; gap:12px; cursor:pointer; text-align:center;" style-hover="background:#e6f3fb;">
+              <span style="font-size:25px; color:#3b3548;">{{ it.icon }}</span>
+              <span style="font-weight:700; font-size:15px; color:#2b2535; line-height:1.3;">{{ it.type }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    screen: 'board', detail: 'oranga', qaOpen: false,
+    step: 1, activePage: 0, activeSection: 0, fieldModal: false,
+    opts: { instructions: false, repeatable: false, conditions: false },
+    pages: [
+      { name: 'Home', sections: [ { name: 'Homepage welcome text', fields: [
+        { label: 'Text for this page', icon: '✎' },
+        { label: 'Images for this page', icon: '🖼', tag: 'Multi Answer: 9' },
+      ] } ] },
+      { name: 'Our School/About Us', sections: [] },
+      { name: 'News & Events', sections: [] },
+      { name: 'Contact', sections: [] },
+    ],
+  };
+
+  open(detail) { this.setState({ screen: 'detail', detail }); }
+  goBoard() { this.setState({ screen: 'board', qaOpen: false, fieldModal: false }); }
+  toggleQA() { this.setState(s => ({ qaOpen: !s.qaOpen })); }
+  startWizard() { this.setState({ screen: 'wizard', step: 1, qaOpen: false }); }
+  gotoStep(n) { this.setState({ step: n }); }
+  back() { this.setState(s => s.step > 1 ? { step: s.step - 1 } : { screen: 'board' }); }
+  selectPage(i) { this.setState({ activePage: i, activeSection: 0 }); }
+  addPage() { this.setState(s => ({ pages: [...s.pages, { name: 'Untitled page', sections: [] }] })); }
+  addSection() {
+    this.setState(s => ({
+      pages: s.pages.map((p, i) => i === s.activePage
+        ? { ...p, sections: [...p.sections, { name: 'Untitled section', fields: [] }] } : p),
+    }));
+  }
+  openFieldModal() { this.setState({ fieldModal: true }); }
+  closeFieldModal() { this.setState({ fieldModal: false }); }
+  addField(label, icon) {
+    this.setState(s => {
+      const pages = s.pages.map((p, pi) => {
+        if (pi !== s.activePage) return p;
+        const sections = p.sections.length ? [...p.sections] : [{ name: 'Untitled section', fields: [] }];
+        const idx = Math.min(s.activeSection, sections.length - 1);
+        sections[idx] = { ...sections[idx], fields: [...sections[idx].fields, { label, icon }] };
+        return { ...p, sections };
+      });
+      return { pages, fieldModal: false };
+    });
+  }
+  toggleOpt(k) { this.setState(s => ({ opts: { ...s.opts, [k]: !s.opts[k] } })); }
+
+  renderVals() {
+    const avatarBgFor = (i) => ({
+      JH:'#f2c94c', BL:'#86d29a', KG:'#9fb6e6', CK:'#5fd0c0', FY:'#5cd1b8',
+      F:'#f49ac1', D:'#f2c94c', TD:'#9fb6e6', RM:'#5fd0c0', SH:'#f49ac1',
+      CH:'#9fb6e6', JL:'#c9a8e9', LB:'#9fb6e6', SK:'#5fd0c0', PP:'#7fd6a0'
+    }[i] || '#cfd2dd');
+
+    const badge = (type) => ({
+      PUBLISHED: { badgeBg:'#dbe6f6', badgeColor:'#5570a0' },
+      ARCHIVED:  { badgeBg:'#dbe6f6', badgeColor:'#5570a0' },
+      OVERDUE:   { badgeBg:'#f7d9d0', badgeColor:'#c9491f' },
+      DRAFT:     { badgeBg:'#e3e2e7', badgeColor:'#6b6675' }
+    }[type] || { badgeBg:'#e3e2e7', badgeColor:'#6b6675' });
+
+    const raw = [
+      { name:'Unassigned', count:1, cards:[
+        { title:'Greytown School - inner pa…', initials:'JH', owner:'Jody Hart', mode:'progress', pct:0, status:'PUBLISHED', due:'12/07/2026' },
+      ]},
+      { name:'Home page', count:9, cards:[
+        { title:'Oranga School - Design brief', initials:'BL', owner:'Bridget Lummis', featured:true, mode:'stats', approved:0, complete:1, todo:10, detail:'oranga' },
+        { title:'Patumahoe School - Design …', initials:'KG', owner:'Keryn Grey', mode:'progress', pct:0, status:'OVERDUE', due:'23/06/2026', overdue:true },
+        { title:'Hingaia Peninsula School - …', initials:'CK', owner:'Carly Kidd', featured:true, mode:'stats', approved:0, complete:5, todo:6 },
+        { title:'Hamilton West School Web…', initials:'FY', owner:'Frank Young', featured:true, mode:'stats', approved:0, complete:5, todo:3 },
+      ]},
+      { name:'In Design', count:5, cards:[
+        { title:'Greytown School - Design b…', initials:'JH', owner:'Jody Hart', mode:'progress', pct:100, status:'ARCHIVED', due:'02/07/2026' },
+        { title:'TKKM o Te Wānanga Whare …', initials:'F', owner:'Fleur', mode:'stats', approved:0, complete:11, todo:0 },
+        { title:'Waitutu Holdings Website d…', initials:'D', owner:'Daniel', mode:'progress', pct:100, status:'ARCHIVED', due:'11/02/2026' },
+        { title:'Pinehill School - Redesign', initials:'TD', owner:'Tracey Danks', mode:'progress', pct:100, status:'ARCHIVED', due:'07/06/2026' },
+      ]},
+      { name:'Inner page awaiting', count:15, cards:[
+        { title:'Core Foundations - inner pa…', initials:'RM', owner:'Rebecca McLeod', mode:'progress', pct:0, status:'PUBLISHED', due:'08/07/2026' },
+        { title:'Henderson Intermediate Sc…', initials:'SH', owner:'Shania Hammon', mode:'progress', pct:0, status:'OVERDUE', due:'28/06/2026', overdue:true },
+        { title:'Rapaura School - inner pag…', initials:'CH', owner:'Carey Huria', featured:true, mode:'stats', approved:0, complete:3, todo:101 },
+        { title:'Ross School - inner pages c…', initials:'JL', owner:'Jodie Linklater', featured:true, mode:'stats', approved:0, complete:12, todo:36, detail:'ross' },
+      ]},
+      { name:'In development', count:7, cards:[
+        { title:'Te Mataitihi School - inner p…', initials:'LB', owner:'Linda Baran', extra:'+ 2 more', featured:true, mode:'stats', approved:0, complete:58, todo:0 },
+        { title:'Te Kura Kaupapa Māori o T…', initials:'SK', owner:'Sophie Kamariera', mode:'progress', pct:100, status:'DRAFT', due:'10/12/2025' },
+        { title:"St Anthony's School - inner …", initials:'PP', owner:'Peta-Maree Parsonage', mode:'progress', pct:19, status:'ARCHIVED', due:'11/03/2026' },
+        { title:'St Josephs Hawera - inner p…', initials:'TD', owner:'Tracey Drought', mode:'progress', pct:23, status:'ARCHIVED', due:'18/03/2025' },
+      ]},
+    ];
+
+    const columns = raw.map((col, ci) => ({
+      name: col.name,
+      count: col.count,
+      isFirst: ci === 0,
+      cards: col.cards.map((c) => {
+        const b = badge(c.status);
+        const detail = c.detail || 'oranga';
+        return {
+          ...c,
+          extra: c.extra || '',
+          avatarBg: avatarBgFor(c.initials),
+          featured: !!c.featured,
+          plain: !c.featured,
+          stats: c.mode === 'stats',
+          progress: c.mode === 'progress',
+          pctLabel: (c.pct ?? 0) + '%',
+          pctWidth: (c.pct ?? 0) + '%',
+          badge: c.status || '',
+          badgeBg: b.badgeBg,
+          badgeColor: b.badgeColor,
+          dueColor: c.overdue ? '#e23b1e' : '#5b5667',
+          onOpen: () => this.open(detail),
+        };
+      }),
+    }));
+
+    const isDetail = this.state.screen === 'detail';
+    const st = this.state;
+
+    // ----- wizard stepper -----
+    const steps = ['Templates', 'Essentials', 'Builder', 'Preview', 'Finalize'].map((label, i) => ({
+      label, num: i + 1, sep: i < 4 ? '›' : '',
+      active: st.step === i + 1, inactive: st.step !== i + 1,
+      onClick: () => this.gotoStep(i + 1),
+    }));
+    const nextMap = {
+      1: { label: 'ESSENTIALS', go: 2, dim: true },
+      2: { label: 'BUILDER', go: 3 },
+      3: { label: 'PREVIEW', go: 4 },
+      4: { label: 'FINALIZE', go: 5 },
+      5: { label: 'SEND', go: 0 },
+    };
+    const nx = nextMap[st.step];
+    const nextBg = nx.dim ? '#e3f1fb' : '#1d3a5f';
+    const nextColor = nx.dim ? '#9cc7e6' : '#fff';
+    const nextAction = () => (nx.go === 0 ? this.goBoard() : this.gotoStep(nx.go));
+
+    // ----- template gallery -----
+    const galleryCats = [
+      { name: 'My Templates', dot: '#5fd0c0' }, { name: 'Accounting', dot: '#f4a261' },
+      { name: 'Bookkeeping', dot: '#9bc6e8' }, { name: 'Coaching/Consulting', dot: '#f2c94c' },
+      { name: 'Design', dot: '#5cc8e8' }, { name: 'Education', dot: '#1d2b46' },
+      { name: 'Events', dot: '#c9a8e9' }, { name: 'Financial Planning', dot: '#3a2a52' },
+      { name: 'General', dot: '#7b3fb5' }, { name: 'Human Resources', dot: '#1a1330' },
+      { name: 'Insurance', dot: '#9bc6e8' }, { name: 'Legal', dot: '#e3d4cb' },
+      { name: 'Marketing', dot: '#d6e84a' }, { name: 'Mortgage & Financing', dot: '#e07a3a' },
+      { name: 'Real Estate', dot: '#e34f3a' },
+    ];
+    const myTemplates = [
+      { title: 'School-Name - Design brief', desc: 'No description provided.', date: '03/12/2024' },
+      { title: 'SchoolName - inner pages content', desc: 'No description provided.', date: '18/08/2021' },
+      { title: 'redesign', desc: 'No description provided.', date: '04/12/2023' },
+    ];
+    const acctTemplates = [
+      { title: 'AML/CTF - Accounting Client Onboarding (Individual)', icon: '💳', iconBg: '#fdebd8', desc: 'Update for Tranche 2 AML and geared towards Australian accountants, this form will help facilitate an easy onboarding process for your individual…' },
+      { title: 'AML/CTF - Accounting Client Onboarding - Business (AUS)', icon: '✒️', iconBg: '#fde0db', desc: 'Updated for Tranche 2 AML and geared towards Australian accountants, this form will help facilitate an easy onboarding process for your business…' },
+      { title: 'ATO Client-agent Linking', icon: '🏠', iconBg: '#fde0db', desc: 'This template walks clients through the steps to link you as their authorised agent using myID, the Relationship Authorisation Manager (RAM) and Online services for business.' },
+    ];
+
+    // ----- builder -----
+    const builderPages = st.pages.map((p, pi) => ({
+      name: p.name, num: pi + 1, color: pi === st.activePage ? '#1493d6' : '#2b2535',
+      onSelect: () => this.selectPage(pi),
+      sub: (pi === st.activePage ? p.sections : []).map((sec, si) => ({
+        num: (pi + 1) + '.' + (si + 1), name: sec.name,
+        fieldNames: sec.fields.map(f => f.label),
+      })),
+    }));
+    const ap = st.pages[st.activePage];
+    const builderPageHeader = (st.activePage + 1) + '. ' + ap.name;
+    const activeSections = ap.sections.map((sec, si) => ({
+      num: (st.activePage + 1) + '.' + (si + 1), name: sec.name,
+      fields: sec.fields.map(f => ({ label: f.label, icon: f.icon, tag: f.tag || '', hasTag: !!f.tag })),
+    }));
+
+    const fieldGroups = [
+      { group: 'COMMON FIELDS', items: [
+        { type: 'Single Line Text', icon: 'Aa' }, { type: 'Multiline Text', icon: '≣' },
+        { type: 'Formatted Text', icon: '✎' }, { type: 'Image(s) Upload', icon: '🖼' }, { type: 'File(s) Upload', icon: '🗎' } ] },
+      { group: 'VALIDATION FIELDS', items: [
+        { type: 'Email', icon: '✉' }, { type: 'Address', icon: '📍' }, { type: 'URL', icon: '🔗' },
+        { type: 'Number', icon: '#' }, { type: 'Phone', icon: '☎' }, { type: 'Currency', icon: '$' },
+        { type: 'Country', icon: '🌐' }, { type: 'Date/Time', icon: '📅' }, { type: 'Date Range', icon: '📆' } ] },
+      { group: 'SELECTION FIELDS', items: [
+        { type: 'Checkbox', icon: '☑' }, { type: 'Single Choice', icon: '◉' }, { type: 'Dropdown', icon: '▾' },
+        { type: 'Image Choice', icon: '🖼' }, { type: 'Numeric Rating', icon: '5' }, { type: 'Star Rating', icon: '★' } ] },
+      { group: 'SPECIAL FIELDS', items: [
+        { type: 'Table', icon: '▦' }, { type: 'Signature', icon: '✍' }, { type: 'Task List', icon: '☑' },
+        { type: 'KYC / AML', icon: '🪪' }, { type: 'Australian ABN/ACN', icon: '💼' } ] },
+      { group: 'UI FIELDS', items: [
+        { type: 'Heading', icon: 'H' }, { type: 'Description', icon: '¶' }, { type: 'Divider', icon: '―' } ] },
+    ].map(g => ({ ...g, items: g.items.map(it => ({ ...it, onPick: () => this.addField(it.type, it.icon) })) }));
+
+    const opts = [
+      { key: 'instructions', label: 'Instructions' },
+      { key: 'repeatable', label: 'Repeatable section' },
+      { key: 'conditions', label: 'Conditions' },
+    ].map(o => {
+      const on = st.opts[o.key];
+      return { ...o, on, trackBg: on ? '#1d3a5f' : '#d8d6df', knobLeft: on ? '25px' : '3px', onToggle: () => this.toggleOpt(o.key) };
+    });
+
+    return {
+      columns,
+      goBoard: () => this.goBoard(),
+      isBoard: st.screen === 'board',
+      showOranga: isDetail && st.detail === 'oranga',
+      showRoss: isDetail && st.detail === 'ross',
+      // quick actions
+      qaOpen: st.qaOpen,
+      toggleQA: () => this.toggleQA(),
+      startWizard: () => this.startWizard(),
+      // wizard
+      isWizard: st.screen === 'wizard',
+      steps, back: () => this.back(),
+      nextLabel: nx.label, nextAction, nextBg, nextColor,
+      stepTemplates: st.step === 1, stepEssentials: st.step === 2,
+      stepBuilder: st.step === 3, stepPreview: st.step === 4, stepFinalize: st.step === 5,
+      galleryCats, myTemplates, acctTemplates,
+      startScratch: () => this.gotoStep(2), pickTemplate: () => this.gotoStep(2),
+      builderPages, builderPageHeader, activeSections,
+      builderTitle: 'SchoolName - inner pages content',
+      addPage: () => this.addPage(), addSection: () => this.addSection(),
+      openFieldModal: () => this.openFieldModal(), closeFieldModal: () => this.closeFieldModal(),
+      fieldModalOpen: st.fieldModal, fieldGroups, opts,
+    };
+  }
+}
+</script>
+</body>
+</html>
