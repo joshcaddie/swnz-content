@@ -32,6 +32,7 @@ export function FieldInput({ type, label, config, value, onChange, readOnly, onU
   const ro = !!readOnly
   const style = { ...box, background: readOnlyBg(ro) }
   const options = config.options ?? []
+  const ph = config.placeholder
 
   switch (type) {
     case 'heading':
@@ -45,7 +46,7 @@ export function FieldInput({ type, label, config, value, onChange, readOnly, onU
     case 'address':
       return (
         <textarea disabled={ro} value={asString(value)} onChange={(e) => onChange(e.target.value)}
-          style={{ ...style, minHeight: 120, resize: 'vertical' }} placeholder="Enter text here..." />
+          style={{ ...style, minHeight: 120, resize: 'vertical' }} placeholder={ph ?? 'Enter text here...'} />
       )
 
     case 'formatted':
@@ -138,7 +139,7 @@ export function FieldInput({ type, label, config, value, onChange, readOnly, onU
 
     case 'single_line':
     default:
-      return <input disabled={ro} value={asString(value)} onChange={(e) => onChange(e.target.value)} style={style} placeholder="Enter text here..." />
+      return <input disabled={ro} value={asString(value)} onChange={(e) => onChange(e.target.value)} style={style} placeholder={ph ?? 'Enter text here...'} />
   }
 }
 

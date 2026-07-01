@@ -25,7 +25,7 @@ export function ClientPortal() {
       .catch((e) => setError(String(e.message ?? e)))
   }, [token])
 
-  const inputFields = useMemo(() => (data ? data.fields.filter((f) => !isDisplayField(f.type)) : []), [data])
+  const inputFields = useMemo(() => (data ? data.fields.filter((f) => !isDisplayField(f.type) && !f.config?.internalOnly) : []), [data])
   const total = inputFields.length
   const answered = useMemo(
     () => inputFields.filter((f) => hasValue(values[f.id])).length,
@@ -79,11 +79,18 @@ export function ClientPortal() {
                     <div key={sec.id} style={{ background: '#fff', border: '1px solid #e9e8ee', borderRadius: 16, padding: '28px 32px', marginBottom: 18, boxShadow: '0 2px 10px rgba(40,30,60,.05)' }}>
                       <div style={{ fontWeight: 800, fontSize: 19, color: C.inkDark, marginBottom: 6 }}>{sec.name}</div>
                       {sec.instructions && <div style={{ color: C.muted, fontSize: 14, marginBottom: 16 }}>{sec.instructions}</div>}
-                      {fields.map((f) => {
+                      {fields.filter((f) => !f.config?.internalOnly).map((f) => {
                         const display = isDisplayField(f.type)
                         return (
                           <div key={f.id} style={{ marginTop: display ? 18 : 22 }}>
-                            {!display && <div style={{ fontWeight: 700, fontSize: 17, color: C.ink, marginBottom: 10 }}>{f.label}</div>}
+                            {!display && (
+                              <div style={{ fontWeight: 700, fontSize: 17, color: C.ink, marginBottom: f.config?.instructions ? 4 : 10 }}>
+                                {f.label}{f.config?.required && <span style={{ color: '#c9491f' }}> *</span>}
+                              </div>
+                            )}
+                            {!display && f.config?.instructions && (
+                              <div style={{ color: C.muted, fontSize: 14, marginBottom: 10 }}>{f.config.instructions}</div>
+                            )}
                             <FieldInput
                               type={f.type}
                               label={f.label}

@@ -45,6 +45,10 @@ export type FieldConfig = {
   maxFiles?: number
   helpText?: string
   max?: number
+  instructions?: string
+  internalOnly?: boolean
+  placeholder?: string
+  conditions?: boolean
   [key: string]: Json | undefined
 }
 
