@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
     const { name, email } = await req.json()
     if (!email || typeof email !== 'string') return json({ error: 'email_required' }, 400)
     const db = serviceClient()
-    const redirectTo = `${Deno.env.get('PUBLIC_APP_URL') ?? 'https://swnz-content.onrender.com'}/welcome`
+    const redirectTo = `${Deno.env.get('PUBLIC_APP_URL') ?? 'https://content.caddiedigital.co.nz'}/welcome`
 
     let link: string | null = null
     const { data, error } = await db.auth.admin.generateLink({

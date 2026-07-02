@@ -32,7 +32,7 @@ async function sendEmail({ to, subject, html, text, brand }: { to: string | stri
   return succeeded > 0 ? { ok: true } : { ok: false, error: JSON.stringify(data?.data ?? data) }
 }
 
-const appUrl = () => Deno.env.get('PUBLIC_APP_URL') ?? 'https://swnz-content.onrender.com'
+const appUrl = () => Deno.env.get('PUBLIC_APP_URL') ?? 'https://content.caddiedigital.co.nz'
 
 const EMAIL_BRANDS: Record<string, { name: string; bar: string; heading: string; button: string; link: string }> = {
   swnz: { name: 'School Websites New Zealand', bar: 'linear-gradient(90deg,#1ed79a,#19c2c0,#1ba0e6)', heading: '#16294a', button: '#1d3a5f', link: '#1493d6' },

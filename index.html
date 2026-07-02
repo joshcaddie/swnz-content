@@ -2,6 +2,13 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // Canonical domain: anything arriving on the old Render URL is sent to the
+      // custom domain with the full path intact (portal links keep working).
+      if (location.hostname === 'swnz-content.onrender.com') {
+        location.replace('https://content.caddiedigital.co.nz' + location.pathname + location.search + location.hash)
+      }
+    </script>
     <link rel="icon" type="image/png" href="/assets/swnz-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Get Content</title>

@@ -25,7 +25,7 @@ async function sendEmail({ to, subject, html }: { to: string; subject: string; h
   return (data?.data?.succeeded ?? 0) > 0 ? { ok: true } : { ok: false, error: JSON.stringify(data?.data ?? data) }
 }
 
-const appUrl = () => Deno.env.get('PUBLIC_APP_URL') ?? 'https://swnz-content.onrender.com'
+const appUrl = () => Deno.env.get('PUBLIC_APP_URL') ?? 'https://content.caddiedigital.co.nz'
 
 function emailLayout(heading: string, body: string, cta?: { label: string; url: string }): string {
   const button = cta
