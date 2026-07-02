@@ -1,13 +1,18 @@
 import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useProfiles } from '../api/profiles'
 import { useBoard, initialsOf } from '../api/requests'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../lib/auth'
+import { qk } from '../api/keys'
 import { Modal } from './ClientsPage'
 import { C } from '../theme'
 import { FullScreenMessage } from '../App'
 
 export function TeamPage() {
   const { data: profiles, isLoading } = useProfiles()
+  const { session } = useAuth()
+  const qc = useQueryClient()
   const { data: cards } = useBoard()
   const [inviteOpen, setInviteOpen] = useState(false)
   const [invName, setInvName] = useState('')
@@ -37,6 +42,18 @@ export function TeamPage() {
       }
     } finally {
       setBusy(false)
+    }
+  }
+
+  const removeMember = async (id: string, name: string, email: string) => {
+    if (!confirm(`Remove ${name || email} from the team? They'll lose access immediately and their requests become unassigned. This cannot be undone.`)) return
+    setNote(null)
+    const { data, error } = await supabase.functions.invoke('delete-user', { body: { user_id: id } })
+    if (error || data?.error) {
+      setNote(`⚠ Could not remove: ${error?.message ?? data?.error}`)
+    } else {
+      setNote(`✓ ${name || email} removed from the team`)
+      qc.invalidateQueries({ queryKey: qk.profiles })
     }
   }
 
@@ -82,6 +99,15 @@ export function TeamPage() {
                 </>
               ) : (
                 <div style={{ background: '#e6f3fb', color: C.navy2, fontWeight: 800, fontSize: 12, letterSpacing: '0.5px', padding: '5px 12px', borderRadius: 7 }}>{p.role.toUpperCase()}</div>
+              )}
+              {p.id !== session?.user?.id && (
+                <div
+                  onClick={() => removeMember(p.id, p.name, p.email)}
+                  title="Remove this team member"
+                  style={{ color: '#c9491f', fontWeight: 800, fontSize: 16, cursor: 'pointer', padding: '0 2px' }}
+                >
+                  ✕
+                </div>
               )}
             </div>
           ))}
