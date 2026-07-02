@@ -41,12 +41,38 @@ export function collectFieldRefs(s: Structure): FieldRef[] {
   return out
 }
 
+/** A field to stamp onto every page generated from a sitemap. */
+export interface SitemapFieldSpec {
+  type: FieldType
+  label: string
+}
+
+export const DEFAULT_SITEMAP_FIELDS: SitemapFieldSpec[] = [
+  { type: 'formatted', label: 'Text for this page' },
+  { type: 'image', label: 'Images for this page' },
+  { type: 'file', label: 'Documents for this page' },
+]
+
+function specToField(spec: SitemapFieldSpec): StructureField {
+  const multi = spec.type === 'image' || spec.type === 'file'
+  return {
+    type: spec.type,
+    label: spec.label,
+    tag: multi ? 'Multi Answer' : undefined,
+    config: {
+      key: newFieldKey(),
+      ...(multi ? { multi: true, maxFiles: 10 } : {}),
+      ...(needsOptions(spec.type) ? { options: ['Option 1', 'Option 2'] } : {}),
+    },
+  }
+}
+
 /**
  * Parse a pasted sitemap (one page per line, indentation/dashes for sub-pages)
- * into pages, each pre-loaded with the standard text/images/documents fields.
+ * into pages, each pre-loaded with the given fields (default: text/images/documents).
  * Sub-pages keep their own name and are marked indent=1 under the page above.
  */
-export function sitemapToPages(text: string): StructurePage[] {
+export function sitemapToPages(text: string, specs: SitemapFieldSpec[] = DEFAULT_SITEMAP_FIELDS): StructurePage[] {
   const lines = text.split('\n')
   const entries: { name: string; depth: number }[] = []
   for (const raw of lines) {
@@ -57,22 +83,14 @@ export function sitemapToPages(text: string): StructurePage[] {
     entries.push({ name, depth: indent })
   }
   if (entries.length === 0) return []
+  const usable = specs.filter((s) => s.label.trim())
   const minIndent = Math.min(...entries.map((e) => e.depth))
   const pages: StructurePage[] = []
   for (const e of entries) {
     pages.push({
       name: e.name,
       indent: e.depth > minIndent ? 1 : 0,
-      sections: [
-        {
-          name: 'Page content',
-          fields: [
-            { type: 'formatted', label: 'Text for this page', config: { key: newFieldKey() } },
-            { type: 'image', label: 'Images for this page', tag: 'Multi Answer', config: { key: newFieldKey(), multi: true, maxFiles: 10 } },
-            { type: 'file', label: 'Documents for this page', tag: 'Multi Answer', config: { key: newFieldKey(), multi: true, maxFiles: 10 } },
-          ],
-        },
-      ],
+      sections: [{ name: 'Page content', fields: usable.map(specToField) }],
     })
   }
   return pages
@@ -110,10 +128,17 @@ export function StructureBuilder(p: Props) {
   const [sitemapOpen, setSitemapOpen] = useState(false)
   const [sitemapText, setSitemapText] = useState('')
   const [generating, setGenerating] = useState(false)
+  // "Build custom with sitemap": step 1 = paste sitemap, step 2 = choose the fields.
+  const [customOpen, setCustomOpen] = useState(false)
+  const [customStep, setCustomStep] = useState<1 | 2>(1)
+  const [customText, setCustomText] = useState('')
+  const [customFields, setCustomFields] = useState<SitemapFieldSpec[]>(DEFAULT_SITEMAP_FIELDS.map((f) => ({ ...f })))
   const ap = p.structure.pages[p.activePage] ?? p.structure.pages[0]
   const selField = ap && p.sel ? ap.sections[p.sel.si]?.fields[p.sel.fi] : null
   const fieldRefs = collectFieldRefs(p.structure)
   const parsedPages = sitemapToPages(sitemapText)
+  const customPages = sitemapToPages(customText, customFields)
+  const customReady = customPages.length > 0 && customFields.some((f) => f.label.trim())
 
   // Hierarchical numbering: top-level pages count 1, 2, 3…; sub-pages 2.1, 2.2…
   let topN = 0
@@ -131,6 +156,20 @@ export function StructureBuilder(p: Props) {
       await p.api.addPages(parsedPages)
       setSitemapOpen(false)
       setSitemapText('')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const generateCustom = async () => {
+    if (!customReady) return
+    setGenerating(true)
+    try {
+      await p.api.addPages(customPages)
+      setCustomOpen(false)
+      setCustomStep(1)
+      setCustomText('')
+      setCustomFields(DEFAULT_SITEMAP_FIELDS.map((f) => ({ ...f })))
     } finally {
       setGenerating(false)
     }
@@ -172,7 +211,8 @@ export function StructureBuilder(p: Props) {
             )
           })}
           <div onClick={p.api.addPage} style={{ display: 'inline-flex', alignItems: 'center', gap: 10, border: `1.5px solid ${C.navy2}`, color: C.navy2, fontWeight: 800, fontSize: 14, letterSpacing: '0.5px', padding: '11px 18px', borderRadius: 24, margin: '16px 4px 6px', cursor: 'pointer' }}>ADD A PAGE ▾</div>
-          <div onClick={() => setSitemapOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: `1.5px solid ${C.cyan}`, color: C.cyan, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '11px 16px', borderRadius: 24, margin: '0 4px 16px', cursor: 'pointer' }}>🗺 GENERATE FROM SITEMAP</div>
+          <div onClick={() => setSitemapOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: `1.5px solid ${C.cyan}`, color: C.cyan, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '11px 16px', borderRadius: 24, margin: '0 4px 8px', cursor: 'pointer' }}>🗺 GENERATE FROM SITEMAP</div>
+          <div onClick={() => { setCustomOpen(true); setCustomStep(1) }} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: `1.5px solid ${C.cyan}`, color: C.cyan, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '11px 16px', borderRadius: 24, margin: '0 4px 16px', cursor: 'pointer' }}>🛠 BUILD CUSTOM WITH SITEMAP</div>
         </div>
       </div>
 
@@ -208,6 +248,96 @@ export function StructureBuilder(p: Props) {
                 {generating ? 'CREATING…' : `CREATE ${parsedPages.length || ''} PAGE${parsedPages.length === 1 ? '' : 'S'}`}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {customOpen && (
+        <div onClick={() => setCustomOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(16,28,52,.5)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 70, padding: '60px 20px', overflow: 'auto' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 18, width: 680, maxWidth: '100%', padding: '28px 30px 30px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ fontWeight: 800, fontSize: 22, color: C.inkDark, flex: 1 }}>Build custom with sitemap</div>
+              <span onClick={() => setCustomOpen(false)} style={{ color: C.muted2, fontSize: 22, cursor: 'pointer' }}>✕</span>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              {[1, 2].map((s) => (
+                <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 7, color: customStep === s ? C.navy2 : C.muted2, fontWeight: 700, fontSize: 13 }}>
+                  <span style={{ width: 22, height: 22, borderRadius: '50%', background: customStep === s ? C.navy2 : '#e4e3e9', color: customStep === s ? '#fff' : '#8b8595', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>{s}</span>
+                  {s === 1 ? 'Sitemap' : 'Fields for every page'}
+                  {s === 1 && <span style={{ color: '#cfcdd6' }}>›</span>}
+                </div>
+              ))}
+            </div>
+
+            {customStep === 1 ? (
+              <>
+                <div style={{ color: C.muted, fontSize: 14, marginBottom: 14, lineHeight: 1.5 }}>
+                  Paste your sitemap — one page per line, indent sub-pages. In the next step you choose
+                  which fields every page gets.
+                </div>
+                <textarea
+                  autoFocus
+                  value={customText}
+                  onChange={(e) => setCustomText(e.target.value)}
+                  placeholder={'- Home\n- About\n    - Our Team\n- Services\n- Contact Us'}
+                  style={{ width: '100%', minHeight: 200, border: '1px solid #e1e0e7', borderRadius: 10, padding: '14px 16px', fontFamily: 'ui-monospace, monospace', fontSize: 14, color: C.ink, outline: 'none', resize: 'vertical', lineHeight: 1.6 }}
+                />
+                <div style={{ marginTop: 12, minHeight: 22, color: customPages.length ? C.navy2 : C.muted2, fontSize: 14, fontWeight: 600 }}>
+                  {customPages.length
+                    ? `${customPages.length} page${customPages.length === 1 ? '' : 's'}: ${customPages.map((pg) => (pg.indent ? `↳ ${pg.name}` : pg.name)).join(' · ')}`
+                    : 'Nothing yet — paste a sitemap above.'}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 16 }}>
+                  <div onClick={() => setCustomOpen(false)} style={{ color: '#5b5667', fontWeight: 700, fontSize: 14, padding: '12px 18px', cursor: 'pointer' }}>Cancel</div>
+                  <div
+                    onClick={() => customPages.length && setCustomStep(2)}
+                    style={{ background: customPages.length ? C.navy2 : '#c9ccd4', color: '#fff', fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '12px 24px', borderRadius: 24, cursor: customPages.length ? 'pointer' : 'default' }}
+                  >
+                    NEXT: CHOOSE FIELDS ›
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ color: C.muted, fontSize: 14, marginBottom: 14, lineHeight: 1.5 }}>
+                  These fields will be added to <strong>each of the {customPages.length} pages</strong>. Pick the type and name them however you like.
+                </div>
+                {customFields.map((f, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                    <span style={{ color: C.navy2, fontSize: 17, width: 22, textAlign: 'center' }}>{iconFor(f.type)}</span>
+                    <select
+                      value={f.type}
+                      onChange={(e) => setCustomFields((arr) => arr.map((x, j) => (j === i ? { ...x, type: e.target.value as FieldType } : x)))}
+                      style={{ width: 190, border: '1px solid #e1e0e7', borderRadius: 10, padding: '11px 10px', fontFamily: 'inherit', fontSize: 14, color: C.ink, outline: 'none', background: '#fff', flex: 'none' }}
+                    >
+                      {FIELD_TYPES.filter((ft) => !isDisplayField(ft.type)).map((ft) => <option key={ft.type} value={ft.type}>{ft.label}</option>)}
+                    </select>
+                    <input
+                      value={f.label}
+                      onChange={(e) => setCustomFields((arr) => arr.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))}
+                      placeholder="Field name shown to the client…"
+                      style={{ flex: 1, border: '1px solid #e1e0e7', borderRadius: 10, padding: '11px 13px', fontFamily: 'inherit', fontSize: 14.5, color: C.ink, outline: 'none' }}
+                    />
+                    <span onClick={() => setCustomFields((arr) => arr.filter((_, j) => j !== i))} style={{ color: '#c9491f', fontWeight: 800, fontSize: 16, cursor: 'pointer' }}>✕</span>
+                  </div>
+                ))}
+                <div
+                  onClick={() => setCustomFields((arr) => [...arr, { type: 'single_line', label: '' }])}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: C.cyan, fontWeight: 700, fontSize: 14, cursor: 'pointer', marginTop: 4 }}
+                >
+                  ＋ Add another field
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 20 }}>
+                  <div onClick={() => setCustomStep(1)} style={{ color: '#5b5667', fontWeight: 700, fontSize: 14, padding: '12px 18px', cursor: 'pointer' }}>‹ Back</div>
+                  <div
+                    onClick={generateCustom}
+                    style={{ background: customReady ? C.navy2 : '#c9ccd4', color: '#fff', fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '12px 24px', borderRadius: 24, cursor: customReady ? 'pointer' : 'default' }}
+                  >
+                    {generating ? 'CREATING…' : `CREATE ${customPages.length} PAGE${customPages.length === 1 ? '' : 'S'}`}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
