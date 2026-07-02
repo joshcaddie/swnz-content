@@ -2,8 +2,9 @@ import { json, preflight } from '../_shared/cors.ts'
 import { serviceClient, requestByToken, loadStructure } from '../_shared/supabase.ts'
 
 // POST /client-upload
-//  { token, action: 'sign',   field_id, filename }            -> { path, signedUrl, signToken }
-//  { token, action: 'record', field_id, path, filename, size, content_type } -> { ok, file }
+//  { token, action: 'sign',     field_id, filename }            -> { path, signedUrl, signToken }
+//  { token, action: 'record',   field_id, path, filename, size, content_type } -> { ok, file }
+//  { token, action: 'download', path, filename? }               -> { url }
 Deno.serve(async (req) => {
   const pre = preflight(req)
   if (pre) return pre
@@ -14,6 +15,17 @@ Deno.serve(async (req) => {
     const db = serviceClient()
     const request = await requestByToken(db, token)
     if (!request) return json({ error: 'not_found' }, 404)
+
+    // Download a file this request uploaded (upload paths are always prefixed with the request id).
+    if (action === 'download') {
+      const path = String(body.path ?? '')
+      if (!path.startsWith(`${request.id}/`)) return json({ error: 'invalid_path' }, 400)
+      const { data, error } = await db.storage
+        .from('uploads')
+        .createSignedUrl(path, 3600, { download: body.filename ?? true })
+      if (error) return json({ error: error.message }, 500)
+      return json({ url: data.signedUrl })
+    }
 
     // Validate the field belongs to this request.
     const { pages, sections, fields } = await loadStructure(db, request.id)

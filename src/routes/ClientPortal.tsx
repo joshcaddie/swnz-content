@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import type { Json, RequestFieldRow } from '../lib/database.types'
-import { portalLoad, portalSave, portalUploadFile, portalRepeatSection, portalVerifySend, portalVerifyCheck, portalAiGenerate, type PortalData } from '../api/portal'
-import { FieldInput } from '../fields/FieldInput'
+import { portalLoad, portalSave, portalUploadFile, portalRepeatSection, portalVerifySend, portalVerifyCheck, portalAiGenerate, portalFileUrl, type PortalData } from '../api/portal'
+import { FieldInput, fileStoragePath, type UploadedFile } from '../fields/FieldInput'
 import { isDisplayField } from '../fields/registry'
 import { C } from '../theme'
 
@@ -99,6 +99,17 @@ export function ClientPortal() {
 
   const setVal = (id: string, v: Json) => setValues((prev) => ({ ...prev, [id]: v }))
 
+  const openFile = async (f: UploadedFile) => {
+    const path = fileStoragePath(f)
+    if (!path) return
+    try {
+      const url = await portalFileUrl(token, path, f.filename)
+      window.open(url, '_blank')
+    } catch (e) {
+      setSavedNote(`Could not open file: ${(e as Error).message}`)
+    }
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', flexDirection: 'column' }}>
       <div style={{ height: 6, background: C.brandBar }} />
@@ -145,6 +156,7 @@ export function ClientPortal() {
                               value={values[f.id] ?? null}
                               onChange={(v) => setVal(f.id, v)}
                               onUpload={(file) => portalUploadFile(token, f.id, file)}
+                              onOpenFile={openFile}
                               onAI={
                                 f.type === 'single_line' || f.type === 'multiline' || f.type === 'formatted'
                                   ? (prompt) => portalAiGenerate(token, f.id, prompt)

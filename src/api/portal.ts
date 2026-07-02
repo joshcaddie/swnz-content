@@ -68,6 +68,16 @@ export async function portalUploadFile(token: string, fieldId: string, file: Fil
   return { path, filename: file.name, size: file.size, content_type: file.type }
 }
 
+/** Signed download URL for a file this request uploaded (token-validated server-side). */
+export async function portalFileUrl(token: string, path: string, filename?: string): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('client-upload', {
+    body: { token, action: 'download', path, filename },
+  })
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
+  return data.url as string
+}
+
 /** Repeatable sections: ask the server to clone the section's fields for another response. */
 export async function portalRepeatSection(token: string, sectionId: string) {
   const { data, error } = await supabase.functions.invoke('client-answer', {
