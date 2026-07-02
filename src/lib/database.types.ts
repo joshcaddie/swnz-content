@@ -90,6 +90,7 @@ export type ProfileRow = {
   email: string
   avatar_color: string
   role: string
+  invite_pending?: boolean
   created_at: string
 }
 export type ClientRow = {

@@ -42,8 +42,8 @@ export function Login() {
           <div style={{ color: C.muted, fontSize: 15, marginBottom: 24 }}>Welcome back to the content desk.</div>
 
           <form onSubmit={submit}>
-            <input style={input} type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <input style={input} type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
+            <input style={input} type="email" name="username" autoComplete="username" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <input style={input} type="password" name="password" autoComplete="current-password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
 
             {error && <div style={{ color: '#c9491f', fontSize: 14, marginBottom: 12 }}>{error}</div>}
             {info && <div style={{ color: '#1f8a4c', fontSize: 14, marginBottom: 12 }}>{info}</div>}

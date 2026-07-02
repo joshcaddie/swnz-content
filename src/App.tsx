@@ -27,6 +27,10 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 /** Team pages need a chosen brand — show the chooser until one is picked. */
 function BrandGate({ children }: { children: React.ReactNode }) {
   const { brandId } = useBrand()
+  const { profile } = useAuth()
+  // Invitees who haven't finished setup are always routed to the welcome page,
+  // even if their invite link dropped them somewhere else.
+  if (profile?.invite_pending) return <Navigate to="/welcome" replace />
   if (!brandId) return <ChooseBrandPage />
   return <>{children}</>
 }

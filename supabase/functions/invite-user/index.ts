@@ -27,6 +27,10 @@ Deno.serve(async (req) => {
     })
     if (!error && data?.properties?.action_link) {
       link = data.properties.action_link
+      // New account: mark the auto-created profile as pending until they finish setup.
+      if (data.user?.id) {
+        await db.from('profiles').update({ invite_pending: true }).eq('id', data.user.id)
+      }
     } else if (error && /already|exists|registered/i.test(error.message)) {
       // Already invited/registered — issue a fresh set-password link instead.
       const { data: rec, error: recErr } = await db.auth.admin.generateLink({

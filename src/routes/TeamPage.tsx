@@ -40,6 +40,13 @@ export function TeamPage() {
     }
   }
 
+  const resendInvite = async (name: string, email: string) => {
+    if (!confirm(`Send a fresh invite link to ${email}?`)) return
+    setNote(null)
+    const { data, error } = await supabase.functions.invoke('invite-user', { body: { name, email } })
+    setNote(error || data?.error ? `⚠ Could not resend: ${error?.message ?? data?.error}` : `✓ Fresh invite sent to ${email}`)
+  }
+
   return (
     <div className="swnz-scroll" style={{ flex: 1, overflowY: 'auto', padding: '28px 36px 60px' }}>
       <div style={{ maxWidth: 900, margin: '0 auto' }}>
@@ -63,7 +70,19 @@ export function TeamPage() {
                 <div style={{ color: '#7b7686', fontSize: 14 }}>{p.email}</div>
               </div>
               <div style={{ color: C.muted, fontSize: 14 }}>{countFor(p.name)} request{countFor(p.name) === 1 ? '' : 's'}</div>
-              <div style={{ background: '#e6f3fb', color: C.navy2, fontWeight: 800, fontSize: 12, letterSpacing: '0.5px', padding: '5px 12px', borderRadius: 7 }}>{p.role.toUpperCase()}</div>
+              {p.invite_pending ? (
+                <>
+                  <div style={{ background: '#fdf2df', color: '#b07817', fontWeight: 800, fontSize: 12, letterSpacing: '0.5px', padding: '5px 12px', borderRadius: 7 }}>PENDING</div>
+                  <div
+                    onClick={() => resendInvite(p.name, p.email)}
+                    style={{ color: C.cyan, fontWeight: 700, fontSize: 13, textDecoration: 'underline', cursor: 'pointer' }}
+                  >
+                    Resend invite
+                  </div>
+                </>
+              ) : (
+                <div style={{ background: '#e6f3fb', color: C.navy2, fontWeight: 800, fontSize: 12, letterSpacing: '0.5px', padding: '5px 12px', borderRadius: 7 }}>{p.role.toUpperCase()}</div>
+              )}
             </div>
           ))}
           {(profiles ?? []).length === 0 && <div style={{ padding: 24, color: C.muted }}>No team members yet.</div>}
@@ -80,7 +99,7 @@ export function TeamPage() {
             <div style={{ fontWeight: 700, fontSize: 14, color: '#4b4556', marginBottom: 8 }}>Email address</div>
             <input type="email" value={invEmail} onChange={(e) => setInvEmail(e.target.value)} placeholder="name@websites.school.nz" style={inviteInput} />
           </div>
-          <div style={{ color: C.muted2, fontSize: 13 }}>They'll receive an email with a link to sign up. Once they create their account they appear here automatically.</div>
+          <div style={{ color: C.muted2, fontSize: 13 }}>They'll receive an email with a personal set-up link and appear here as PENDING until they've chosen a password.</div>
         </Modal>
       )}
     </div>

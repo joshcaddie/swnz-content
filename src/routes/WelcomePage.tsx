@@ -36,8 +36,11 @@ export function WelcomePage() {
     try {
       const { error: uErr } = await supabase.auth.updateUser({ password, data: { name } })
       if (uErr) { setError(uErr.message); return }
-      if (session?.user?.id && name.trim()) {
-        await supabase.from('profiles').update({ name: name.trim() }).eq('id', session.user.id)
+      if (session?.user?.id) {
+        await supabase
+          .from('profiles')
+          .update({ ...(name.trim() ? { name: name.trim() } : {}), invite_pending: false })
+          .eq('id', session.user.id)
       }
       navigate('/', { replace: true })
     } finally {
@@ -72,9 +75,17 @@ export function WelcomePage() {
                 Confirm your name and choose a password to finish setting up your account.
               </div>
               <form onSubmit={submit}>
-                <input style={input} placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} required />
-                <input style={input} type="password" placeholder="Choose a password (min 8 characters)" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
-                <input style={input} type="password" placeholder="Confirm password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
+                <input
+                  style={{ ...input, background: '#f7f7fa', color: C.muted }}
+                  type="email"
+                  name="username"
+                  autoComplete="username"
+                  value={session.user.email ?? ''}
+                  readOnly
+                />
+                <input style={input} name="name" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} required />
+                <input style={input} type="password" name="new-password" autoComplete="new-password" placeholder="Choose a password (min 8 characters)" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
+                <input style={input} type="password" name="confirm-password" autoComplete="new-password" placeholder="Confirm password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
                 {error && <div style={{ color: '#c9491f', fontSize: 14, marginBottom: 12 }}>{error}</div>}
                 <button type="submit" disabled={busy} style={{ width: '100%', background: C.navy2, color: '#fff', fontWeight: 800, fontSize: 15, letterSpacing: '0.4px', padding: '15px', borderRadius: 28, border: 'none', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.7 : 1 }}>
                   {busy ? 'Setting up…' : 'FINISH SETUP'}
