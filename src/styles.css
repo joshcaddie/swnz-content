@@ -82,3 +82,10 @@ textarea::placeholder {
 .swnz-spin {
   animation: swnz-spin 0.9s linear infinite;
 }
+
+.swnz-hover-lift {
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.swnz-hover-lift:hover {
+  transform: translateY(-4px);
+}

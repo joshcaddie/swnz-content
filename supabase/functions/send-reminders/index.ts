@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
 
     const { data: requests } = await db
       .from('requests')
-      .select('id, name, due_date, public_token, reminders_enabled, clients(name, contact_email)')
+      .select('id, name, due_date, public_token, brand, reminders_enabled, clients(name, contact_email)')
       .eq('reminders_enabled', true)
       .not('due_date', 'is', null)
       .lte('due_date', horizon)
@@ -38,12 +38,14 @@ Deno.serve(async (req) => {
 
       const result = await sendEmail({
         to: client.contact_email,
+        brand: r.brand,
         subject: `Reminder: ${r.name}`,
         html: emailLayout(
           'A quick reminder',
           `<p>Kia ora,</p><p>Your content request <strong>${r.name}</strong> is due
            ${r.due_date}. When you have a moment, please open it and add what you can.</p>`,
           { label: 'Open your request', url: portalLink(r.public_token) },
+          r.brand,
         ),
       })
       if (result.ok) sent++

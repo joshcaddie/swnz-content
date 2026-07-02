@@ -1,13 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { useBrand } from '../lib/brand'
 import type { ClientRow } from '../lib/database.types'
 import { qk } from './keys'
 
 export function useClients() {
+  const { brandId } = useBrand()
   return useQuery({
-    queryKey: qk.clients,
+    queryKey: [...qk.clients, brandId],
     queryFn: async (): Promise<ClientRow[]> => {
-      const { data, error } = await supabase.from('clients').select('*').order('name')
+      const { data, error } = await supabase.from('clients').select('*').eq('brand', brandId ?? 'swnz').order('name')
       if (error) throw error
       return data ?? []
     },
@@ -16,9 +18,10 @@ export function useClients() {
 
 export function useCreateClient() {
   const qc = useQueryClient()
+  const { brandId } = useBrand()
   return useMutation({
     mutationFn: async (input: Partial<ClientRow>): Promise<ClientRow> => {
-      const { data, error } = await supabase.from('clients').insert(input).select('*').single()
+      const { data, error } = await supabase.from('clients').insert({ brand: brandId ?? 'swnz', ...input }).select('*').single()
       if (error) throw error
       return data
     },

@@ -1,13 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { useBrand } from '../lib/brand'
 import type { Structure, TemplateRow } from '../lib/database.types'
 import { qk } from './keys'
 
 export function useTemplates() {
+  const { brandId } = useBrand()
   return useQuery({
-    queryKey: qk.templates,
+    queryKey: [...qk.templates, brandId],
     queryFn: async (): Promise<TemplateRow[]> => {
-      const { data, error } = await supabase.from('templates').select('*').order('updated_at', { ascending: false })
+      const { data, error } = await supabase.from('templates').select('*').eq('brand', brandId ?? 'swnz').order('updated_at', { ascending: false })
       if (error) throw error
       return data ?? []
     },
@@ -16,9 +18,10 @@ export function useTemplates() {
 
 export function useCreateTemplate() {
   const qc = useQueryClient()
+  const { brandId } = useBrand()
   return useMutation({
     mutationFn: async (input: { name: string; description?: string; structure: Structure }) => {
-      const { data, error } = await supabase.from('templates').insert(input).select('*').single()
+      const { data, error } = await supabase.from('templates').insert({ brand: brandId ?? 'swnz', ...input }).select('*').single()
       if (error) throw error
       return data
     },
@@ -29,13 +32,14 @@ export function useCreateTemplate() {
 /** Snapshot an existing request's structure as a reusable template. */
 export function useSaveAsTemplate() {
   const qc = useQueryClient()
+  const { brandId } = useBrand()
   return useMutation({
     mutationFn: async ({ requestId, name, description }: { requestId: string; name: string; description?: string }) => {
       const { data: structure, error: e1 } = await supabase.rpc('request_structure', { p_request: requestId })
       if (e1) throw e1
       const { error: e2 } = await supabase
         .from('templates')
-        .insert({ name, description: description ?? null, structure: structure as unknown as Structure })
+        .insert({ name, description: description ?? null, brand: brandId ?? 'swnz', structure: structure as unknown as Structure })
       if (e2) throw e2
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.templates }),

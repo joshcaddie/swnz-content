@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { useBrand } from '../lib/brand'
 import { qk } from '../api/keys'
 import { Switch } from '../components/StructureBuilder'
 import { C, formatDate } from '../theme'
@@ -18,12 +19,14 @@ interface Row {
 export function RemindersPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const { brandId } = useBrand()
   const { data: rows, isLoading, refetch } = useQuery({
-    queryKey: ['reminder-rows'],
+    queryKey: ['reminder-rows', brandId],
     queryFn: async (): Promise<Row[]> => {
       const { data, error } = await supabase
         .from('requests')
         .select('id, name, due_date, reminders_enabled, clients(name, contact_email)')
+        .eq('brand', brandId ?? 'swnz')
         .order('due_date', { ascending: true, nullsFirst: false })
       if (error) throw error
       return (data ?? []) as unknown as Row[]

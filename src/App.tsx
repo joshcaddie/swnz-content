@@ -1,5 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './lib/auth'
+import { BrandProvider, useBrand } from './lib/brand'
+import { ChooseBrandPage } from './routes/ChooseBrandPage'
 import { TeamLayout } from './components/TeamLayout'
 import { Login } from './routes/Login'
 import { BoardPage } from './routes/BoardPage'
@@ -21,6 +23,13 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+/** Team pages need a chosen brand — show the chooser until one is picked. */
+function BrandGate({ children }: { children: React.ReactNode }) {
+  const { brandId } = useBrand()
+  if (!brandId) return <ChooseBrandPage />
+  return <>{children}</>
+}
+
 export function FullScreenMessage({ text }: { text: string }) {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6f6a7a', fontSize: 18 }}>
@@ -31,32 +40,36 @@ export function FullScreenMessage({ text }: { text: string }) {
 
 export default function App() {
   return (
-    <Routes>
-      {/* Public client portal — no team auth, no chrome */}
-      <Route path="/c/:token" element={<ClientPortal />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/reset" element={<ResetPassword />} />
+    <BrandProvider>
+      <Routes>
+        {/* Public client portal — no team auth, no chrome */}
+        <Route path="/c/:token" element={<ClientPortal />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/reset" element={<ResetPassword />} />
 
-      {/* Team app */}
-      <Route
-        element={
-          <RequireAuth>
-            <TeamLayout />
-          </RequireAuth>
-        }
-      >
-        <Route path="/" element={<BoardPage />} />
-        <Route path="/requests/new" element={<WizardPage />} />
-        <Route path="/requests/:id" element={<RequestDetailPage />} />
-        <Route path="/requests/:id/edit" element={<RequestBuilderPage />} />
-        <Route path="/templates" element={<TemplatesPage />} />
-        <Route path="/clients" element={<ClientsPage />} />
-        <Route path="/team" element={<TeamPage />} />
-        <Route path="/reminders" element={<RemindersPage />} />
-        <Route path="/activity" element={<ActivityPage />} />
-      </Route>
+        {/* Team app */}
+        <Route
+          element={
+            <RequireAuth>
+              <BrandGate>
+                <TeamLayout />
+              </BrandGate>
+            </RequireAuth>
+          }
+        >
+          <Route path="/" element={<BoardPage />} />
+          <Route path="/requests/new" element={<WizardPage />} />
+          <Route path="/requests/:id" element={<RequestDetailPage />} />
+          <Route path="/requests/:id/edit" element={<RequestBuilderPage />} />
+          <Route path="/templates" element={<TemplatesPage />} />
+          <Route path="/clients" element={<ClientsPage />} />
+          <Route path="/team" element={<TeamPage />} />
+          <Route path="/reminders" element={<RemindersPage />} />
+          <Route path="/activity" element={<ActivityPage />} />
+        </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrandProvider>
   )
 }

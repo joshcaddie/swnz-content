@@ -4,6 +4,8 @@ import type { Json, RequestFieldRow } from '../lib/database.types'
 import { portalLoad, portalSave, portalUploadFile, portalRepeatSection, portalVerifySend, portalVerifyCheck, portalAiGenerate, portalFileUrl, type PortalData } from '../api/portal'
 import { FieldInput, fileStoragePath, type UploadedFile } from '../fields/FieldInput'
 import { isDisplayField } from '../fields/registry'
+import { brandOf } from '../brands'
+import { BrandLogo } from '../components/BrandLogo'
 import { C } from '../theme'
 
 /** Loose comparison for condition triggers ("Yes" matches "yes ", option arrays, etc.). */
@@ -113,12 +115,14 @@ export function ClientPortal() {
     }
   }
 
+  const brand = brandOf(data.request.brand)
   return (
     <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', flexDirection: 'column' }}>
-      <div style={{ height: 6, background: C.brandBar }} />
-      <div style={{ background: C.navy, padding: '16px 26px', display: 'flex', alignItems: 'center', gap: 14 }}>
-        <img src="/assets/swnz-icon.png" alt="SWNZ" style={{ width: 42, height: 42 }} />
-        <div style={{ color: '#fff', fontWeight: 800, fontSize: 18 }}>School Websites New Zealand</div>
+      <div style={{ height: 6, background: brand.bar }} />
+      <div style={{ background: brand.topBar, padding: '16px 26px', display: 'flex', alignItems: 'center', gap: 14 }}>
+        <BrandLogo brand={brand} size={42} />
+        {brand.logoImg && <div style={{ color: '#fff', fontWeight: 800, fontSize: 18 }}>{brand.name}</div>}
+        {!brand.logoImg && brand.tagline && <div style={{ color: '#b9b3c2', fontWeight: 600, fontSize: 13 }}>{brand.tagline}</div>}
       </div>
 
       <div className="swnz-scroll" style={{ flex: 1, overflowY: 'auto', padding: '32px 20px 140px' }}>
@@ -192,14 +196,14 @@ export function ClientPortal() {
         <div style={{ flex: 1 }}>
           <div style={{ color: C.muted, fontSize: 13, marginBottom: 6 }}>{answered} / {total} answered{savedNote ? ` · ${savedNote}` : ''}</div>
           <div style={{ width: 240, height: 8, background: '#e4e2ea', borderRadius: 6, overflow: 'hidden' }}>
-            <div style={{ width: `${total ? (answered / total) * 100 : 0}%`, height: '100%', background: C.gradient, borderRadius: 6 }} />
+            <div style={{ width: `${total ? (answered / total) * 100 : 0}%`, height: '100%', background: brand.gradient, borderRadius: 6 }} />
           </div>
         </div>
         <div style={{ textAlign: 'center' }}>
-          <div onClick={() => persist(false)} style={{ color: C.cyan, fontWeight: 700, fontSize: 16, textDecoration: 'underline', cursor: 'pointer' }}>{saving === 'saving' ? 'Saving…' : 'Save draft'}</div>
+          <div onClick={() => persist(false)} style={{ color: brand.accent, fontWeight: 700, fontSize: 16, textDecoration: 'underline', cursor: 'pointer' }}>{saving === 'saving' ? 'Saving…' : 'Save draft'}</div>
           <div style={{ color: C.muted2, fontSize: 12, marginTop: 3 }}>You can close this page and come back later</div>
         </div>
-        <div onClick={() => persist(true)} style={{ background: C.navy2, color: '#fff', fontWeight: 800, fontSize: 15, letterSpacing: '0.4px', padding: '15px 26px', borderRadius: 28, cursor: 'pointer' }}>{saving === 'submitting' ? 'SUBMITTING…' : 'SUBMIT FOR REVIEW'}</div>
+        <div onClick={() => persist(true)} style={{ background: brand.buttonBg, color: '#fff', fontWeight: 800, fontSize: 15, letterSpacing: '0.4px', padding: '15px 26px', borderRadius: 28, cursor: 'pointer' }}>{saving === 'submitting' ? 'SUBMITTING…' : 'SUBMIT FOR REVIEW'}</div>
       </div>
     </div>
   )

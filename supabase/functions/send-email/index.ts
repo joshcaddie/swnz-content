@@ -30,16 +30,21 @@ Deno.serve(async (req) => {
       const to = (request as { clients?: { contact_email?: string } }).clients?.contact_email
       if (!to) return json({ error: 'client_has_no_email' }, 400)
 
+      const brand = request.brand ?? 'swnz'
+      const agency = brand === 'caddie' ? 'Caddie Digital' : 'School Websites New Zealand'
+
       if (body.kind === 'invite') {
         const result = await sendEmail({
           to,
+          brand,
           subject: `Action needed: ${request.name}`,
           html: emailLayout(
             'We need some content from you',
-            `<p>Kia ora,</p><p>School Websites New Zealand has a content request ready for you:
+            `<p>Kia ora,</p><p>${agency} has a content request ready for you:
              <strong>${request.name}</strong>${request.due_date ? ` (due ${request.due_date})` : ''}.</p>
              <p>Click below to open it — no login required.</p>`,
             { label: 'Open your request', url: portalLink(request.public_token) },
+            brand,
           ),
         })
         return json(result)
@@ -48,6 +53,7 @@ Deno.serve(async (req) => {
       const approved = !!body.approved
       const result = await sendEmail({
         to,
+        brand,
         subject: approved ? `Approved: ${request.name}` : `Changes requested: ${request.name}`,
         html: emailLayout(
           approved ? 'Your submission was approved' : 'A few changes are needed',
@@ -56,6 +62,7 @@ Deno.serve(async (req) => {
             : `<p>Thanks for your submission to <strong>${request.name}</strong>. We've requested some changes:</p>
                <blockquote style="border-left:3px solid #1493d6;padding-left:12px;color:#4b4556;">${body.note ?? ''}</blockquote>`,
           { label: 'Open your request', url: portalLink(request.public_token) },
+          brand,
         ),
       })
       return json(result)
@@ -64,8 +71,9 @@ Deno.serve(async (req) => {
     if (body.kind === 'custom') {
       const result = await sendEmail({
         to: body.to,
+        brand: body.brand,
         subject: body.subject,
-        html: emailLayout(body.heading ?? body.subject, body.body ?? ''),
+        html: emailLayout(body.heading ?? body.subject, body.body ?? '', undefined, body.brand),
       })
       return json(result)
     }

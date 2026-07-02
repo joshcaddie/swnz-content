@@ -63,11 +63,13 @@ Deno.serve(async (req) => {
       if (notify) {
         await sendEmail({
           to: notify,
+          brand: request.brand,
           subject: `New submission: ${request.name}`,
           html: emailLayout(
             'A client submitted answers',
             `<p><strong>${request.name}</strong> has ${incoming.length} newly submitted answer(s) ready for review.</p>`,
             { label: 'Open request', url: portalLink(request.public_token) },
+            request.brand,
           ),
         }).catch(() => {})
       }

@@ -15,12 +15,14 @@ import { useStages } from '../api/stages'
 import { useClients } from '../api/clients'
 import { qk } from '../api/keys'
 import { supabase } from '../lib/supabase'
+import { useBrand } from '../lib/brand'
 import { C, badgeStyles, formatDate } from '../theme'
 import { FullScreenMessage } from '../App'
 
 const STATUS_OPTIONS = ['PUBLISHED', 'OVERDUE', 'ARCHIVED', 'DRAFT']
 
 export function BoardPage() {
+  const { brand } = useBrand()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { data: cards, isLoading } = useBoard()
@@ -103,8 +105,8 @@ export function BoardPage() {
     <div
       onClick={onClick}
       style={{
-        border: `1.5px solid ${active ? C.cyan : '#d7d5dd'}`,
-        color: active ? C.cyan : '#5b5667',
+        border: `1.5px solid ${active ? brand.accent : '#d7d5dd'}`,
+        color: active ? brand.accent : '#5b5667',
         fontWeight: active ? 800 : 600,
         fontSize: 14,
         padding: '11px 18px',
@@ -125,11 +127,11 @@ export function BoardPage() {
       {/* sub tabs */}
       <div style={{ display: 'flex', alignItems: 'center', padding: '18px 30px 0', gap: 34, background: C.bg }}>
         <div style={{ display: 'flex', gap: 32 }}>
-          <div style={{ color: C.cyan, fontWeight: 800, fontSize: 15, letterSpacing: '0.8px', paddingBottom: 12, borderBottom: `3px solid ${C.cyan}` }}>REQUESTS</div>
+          <div style={{ color: brand.accent, fontWeight: 800, fontSize: 15, letterSpacing: '0.8px', paddingBottom: 12, borderBottom: `3px solid ${brand.accent}` }}>REQUESTS</div>
         </div>
         <div style={{ flex: 1 }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingBottom: 8 }}>
-          <div style={{ border: `1.5px solid ${C.cyan}`, color: C.cyan, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '9px 16px', borderRadius: 22, cursor: 'pointer' }}>⚡ ACTIVITY</div>
+          <div style={{ border: `1.5px solid ${brand.accent}`, color: brand.accent, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '9px 16px', borderRadius: 22, cursor: 'pointer' }}>⚡ ACTIVITY</div>
           <div style={{ color: '#6f6a7a', fontWeight: 800, fontSize: 20, cursor: 'pointer' }}>⋯</div>
         </div>
       </div>
@@ -221,6 +223,7 @@ function Card({ card, onOpen, menuOpen, onToggleMenu, onDelete, onDuplicate }: {
   onDelete: () => void
   onDuplicate: () => void
 }) {
+  const { brand: brandCard } = useBrand()
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: card.id })
   const style: React.CSSProperties = {
     transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
@@ -243,7 +246,7 @@ function Card({ card, onOpen, menuOpen, onToggleMenu, onDelete, onDuplicate }: {
 
   if (card.featured) {
     return (
-      <div ref={setNodeRef} {...listeners} {...attributes} onClick={onOpen} style={{ ...style, position: 'relative', background: C.gradientCard, borderRadius: 13, padding: '16px 17px 17px', boxShadow: '0 6px 16px rgba(23,143,196,.28)' }}>
+      <div ref={setNodeRef} {...listeners} {...attributes} onClick={onOpen} style={{ ...style, position: 'relative', background: brandCard.cardGradient, borderRadius: 13, padding: '16px 17px 17px', boxShadow: '0 6px 16px rgba(23,143,196,.28)' }}>
         {menu}
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
           <div style={{ color: '#fff', fontWeight: 800, fontSize: 18, lineHeight: 1.25, flex: 1 }}>{card.title}</div>
@@ -279,7 +282,7 @@ function Card({ card, onOpen, menuOpen, onToggleMenu, onDelete, onDuplicate }: {
       </div>
       <div style={{ textAlign: 'right', color: '#6f6a7a', fontWeight: 700, fontSize: 15, marginTop: 14 }}>{card.pct}%</div>
       <div style={{ height: 5, background: '#ececf0', borderRadius: 4, marginTop: 7, overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${card.pct}%`, background: C.cyan, borderRadius: 4 }} />
+        <div style={{ height: '100%', width: `${card.pct}%`, background: brandCard.accent, borderRadius: 4 }} />
       </div>
       <div style={{ display: 'flex', alignItems: 'center', marginTop: 15 }}>
         {card.badge && <div style={{ background: b.bg, color: b.color, fontWeight: 800, fontSize: 12, letterSpacing: '0.6px', padding: '6px 12px', borderRadius: 7 }}>{card.badge}</div>}

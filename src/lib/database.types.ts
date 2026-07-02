@@ -97,6 +97,7 @@ export type ClientRow = {
   name: string
   contact_name: string | null
   contact_email: string | null
+  brand?: string
   color: string
   created_by: string | null
   created_at: string
@@ -112,6 +113,7 @@ export type TemplateRow = {
   id: string
   name: string
   description: string | null
+  brand?: string
   structure: Structure
   created_by: string | null
   created_at: string
@@ -132,6 +134,7 @@ export type RequestRow = {
   reminders_enabled: boolean
   verify_email: boolean
   public_token: string
+  brand?: string
   position: number
   created_at: string
   updated_at: string

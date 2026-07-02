@@ -4,7 +4,7 @@ import type { AnswerRow, RequestFieldRow, RequestPageRow, RequestSectionRow, Jso
 // Client portal talks to Edge Functions (no team auth). functions.invoke attaches the anon key.
 
 export interface PortalData {
-  request: { id: string; name: string; due_date: string | null; verify_email: boolean }
+  request: { id: string; name: string; due_date: string | null; verify_email: boolean; brand?: string }
   client: { name: string; contact_name: string | null; contact_email: string | null } | null
   pages: RequestPageRow[]
   sections: RequestSectionRow[]

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { useBrand } from '../lib/brand'
 import type {
   AnswerRow,
   Json,
@@ -43,15 +44,17 @@ interface RawBoardRequest extends RequestRow {
   owner: { name: string; avatar_color: string } | null
 }
 
-/** Board: all requests + their progress, ready to group by stage in the UI. */
+/** Board: the active brand's requests + their progress, ready to group by stage in the UI. */
 export function useBoard() {
+  const { brandId } = useBrand()
   return useQuery({
-    queryKey: qk.board,
+    queryKey: [...qk.board, brandId],
     queryFn: async (): Promise<BoardCard[]> => {
       const [{ data: reqs, error }, { data: prog }] = await Promise.all([
         supabase
           .from('requests')
           .select('*, clients(name), owner:profiles(name, avatar_color)')
+          .eq('brand', brandId ?? 'swnz')
           .order('position'),
         supabase.from('request_progress').select('*'),
       ])
@@ -138,6 +141,7 @@ export function useRequest(id: string | undefined) {
 
 export function useCreateRequest() {
   const qc = useQueryClient()
+  const { brandId } = useBrand()
   return useMutation({
     mutationFn: async (input: {
       name: string
@@ -154,6 +158,7 @@ export function useCreateRequest() {
         p_due: input.dueDate,
         p_folder: input.folder ?? 'Default Folder',
         p_structure: input.structure as unknown as Json,
+        p_brand: brandId ?? 'swnz',
       })
       if (error) throw error
       return data as unknown as string
@@ -212,6 +217,7 @@ export function useDuplicateRequest() {
         p_due: req.due_date,
         p_folder: req.folder,
         p_structure: structure as unknown as Json,
+        p_brand: req.brand ?? 'swnz',
       })
       if (e2) throw e2
     },
