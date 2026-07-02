@@ -179,7 +179,10 @@ export function ClientPortal() {
             <div style={{ width: `${total ? (answered / total) * 100 : 0}%`, height: '100%', background: C.gradient, borderRadius: 6 }} />
           </div>
         </div>
-        <div onClick={() => persist(false)} style={{ color: C.cyan, fontWeight: 700, fontSize: 16, textDecoration: 'underline', cursor: 'pointer' }}>{saving === 'saving' ? 'Saving…' : 'Save draft'}</div>
+        <div style={{ textAlign: 'center' }}>
+          <div onClick={() => persist(false)} style={{ color: C.cyan, fontWeight: 700, fontSize: 16, textDecoration: 'underline', cursor: 'pointer' }}>{saving === 'saving' ? 'Saving…' : 'Save draft'}</div>
+          <div style={{ color: C.muted2, fontSize: 12, marginTop: 3 }}>You can close this page and come back later</div>
+        </div>
         <div onClick={() => persist(true)} style={{ background: C.navy2, color: '#fff', fontWeight: 800, fontSize: 15, letterSpacing: '0.4px', padding: '15px 26px', borderRadius: 28, cursor: 'pointer' }}>{saving === 'submitting' ? 'SUBMITTING…' : 'SUBMIT FOR REVIEW'}</div>
       </div>
     </div>
