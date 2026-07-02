@@ -95,6 +95,39 @@ export function RequestBuilderPage() {
       await supabase.from('request_pages').insert({ request_id: id, name: 'Untitled page', position: data.pages.length })
       await refresh()
     },
+    addPages: async (newPages) => {
+      // Batched: all pages → their sections → all fields, three round-trips total.
+      const startPos = data.pages.length
+      const { data: pageRows, error: pErr } = await supabase
+        .from('request_pages')
+        .insert(newPages.map((pg, i) => ({ request_id: id, name: pg.name, position: startPos + i })))
+        .select('id, position')
+      if (pErr || !pageRows) { alert(`Could not create pages: ${pErr?.message}`); return }
+      const pageIdAt = (i: number) => pageRows.find((r) => r.position === startPos + i)!.id
+
+      const sectionInserts = newPages.flatMap((pg, i) =>
+        pg.sections.map((sec, si) => ({ page_id: pageIdAt(i), name: sec.name, instructions: sec.instructions ?? null, repeatable: !!sec.repeatable, position: si })),
+      )
+      const { data: secRows, error: sErr } = await supabase
+        .from('request_sections')
+        .insert(sectionInserts)
+        .select('id, page_id, position')
+      if (sErr || !secRows) { alert(`Could not create sections: ${sErr?.message}`); return }
+
+      const fieldInserts = newPages.flatMap((pg, i) =>
+        pg.sections.flatMap((sec, si) => {
+          const secRow = secRows.find((r) => r.page_id === pageIdAt(i) && r.position === si)!
+          return sec.fields.map((f, fi) => ({
+            section_id: secRow.id, type: f.type, label: f.label, tag: f.tag ?? null, config: f.config ?? {}, position: fi,
+          }))
+        }),
+      )
+      if (fieldInserts.length) {
+        const { error: fErr } = await supabase.from('request_fields').insert(fieldInserts)
+        if (fErr) { alert(`Could not create fields: ${fErr.message}`); return }
+      }
+      await refresh()
+    },
     renamePage: (pi, v) => {
       local((s) => { s.pages[pi].name = v })
       const rowId = pid(pi)

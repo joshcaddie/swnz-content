@@ -73,6 +73,16 @@ export function WizardPage() {
 
   const api: BuilderApi = useMemo(() => ({
     addPage: () => { mutate((s) => { s.pages.push({ name: 'Untitled page', sections: [] }) }); setSel(null) },
+    addPages: (pages) => {
+      mutate((s) => {
+        // If the wizard still only has the untouched blank page, replace it outright.
+        const onlyBlank = s.pages.length === 1 && s.pages[0].sections.every((sec) => sec.fields.length === 0)
+        if (onlyBlank) s.pages = pages
+        else s.pages.push(...pages)
+      })
+      setSel(null)
+      setActivePage(0)
+    },
     renamePage: (pi, v) => mutate((s) => { s.pages[pi].name = v }),
     deletePage: (pi) => { mutate((s) => { s.pages.splice(pi, 1) }); setActivePage(0); setSel(null) },
     addSection: () => mutate((s) => { s.pages[activePage].sections.push({ name: 'Untitled section', fields: [] }) }),

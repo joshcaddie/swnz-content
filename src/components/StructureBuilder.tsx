@@ -1,4 +1,5 @@
-import type { FieldConfig, FieldType, Structure, StructureField } from '../lib/database.types'
+import { useState } from 'react'
+import type { FieldConfig, FieldType, Structure, StructureField, StructurePage } from '../lib/database.types'
 import { FIELD_TYPES, iconFor, isDisplayField } from '../fields/registry'
 import { C } from '../theme'
 
@@ -40,8 +41,49 @@ export function collectFieldRefs(s: Structure): FieldRef[] {
   return out
 }
 
+/**
+ * Parse a pasted sitemap (one page per line, indentation/dashes for sub-pages)
+ * into pages, each pre-loaded with the standard text/images/documents fields.
+ * Sub-pages become their own pages named "Parent – Child".
+ */
+export function sitemapToPages(text: string): StructurePage[] {
+  const lines = text.split('\n')
+  const entries: { name: string; depth: number }[] = []
+  for (const raw of lines) {
+    if (!raw.trim()) continue
+    const indent = raw.match(/^[\s]*/)?.[0].replace(/\t/g, '    ').length ?? 0
+    const name = raw.trim().replace(/^[-–—*•>]+\s*/, '').trim()
+    if (!name) continue
+    entries.push({ name, depth: indent })
+  }
+  if (entries.length === 0) return []
+  const minIndent = Math.min(...entries.map((e) => e.depth))
+  let lastTop = ''
+  const pages: StructurePage[] = []
+  for (const e of entries) {
+    let pageName = e.name
+    if (e.depth > minIndent && lastTop) pageName = `${lastTop} – ${e.name}`
+    else lastTop = e.name
+    pages.push({
+      name: pageName,
+      sections: [
+        {
+          name: 'Page content',
+          fields: [
+            { type: 'formatted', label: 'Text for this page', config: { key: newFieldKey() } },
+            { type: 'image', label: 'Images for this page', tag: 'Multi Answer', config: { key: newFieldKey(), multi: true, maxFiles: 10 } },
+            { type: 'file', label: 'Documents for this page', tag: 'Multi Answer', config: { key: newFieldKey(), multi: true, maxFiles: 10 } },
+          ],
+        },
+      ],
+    })
+  }
+  return pages
+}
+
 export interface BuilderApi {
   addPage: () => void
+  addPages: (pages: StructurePage[]) => void | Promise<void>
   renamePage: (pi: number, v: string) => void
   deletePage: (pi: number) => void
   addSection: () => void
@@ -66,10 +108,27 @@ interface Props {
 }
 
 export function StructureBuilder(p: Props) {
+  const [sitemapOpen, setSitemapOpen] = useState(false)
+  const [sitemapText, setSitemapText] = useState('')
+  const [generating, setGenerating] = useState(false)
   const ap = p.structure.pages[p.activePage] ?? p.structure.pages[0]
-  if (!ap) return <div style={{ padding: 40, color: C.muted }}>No pages yet — add one.</div>
-  const selField = p.sel ? ap.sections[p.sel.si]?.fields[p.sel.fi] : null
+  const selField = ap && p.sel ? ap.sections[p.sel.si]?.fields[p.sel.fi] : null
   const fieldRefs = collectFieldRefs(p.structure)
+  const parsedPages = sitemapToPages(sitemapText)
+
+  const generate = async () => {
+    if (parsedPages.length === 0) return
+    setGenerating(true)
+    try {
+      await p.api.addPages(parsedPages)
+      setSitemapOpen(false)
+      setSitemapText('')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  if (!ap) return <div style={{ padding: 40, color: C.muted }}>No pages yet — add one.</div>
 
   return (
     <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
@@ -97,9 +156,46 @@ export function StructureBuilder(p: Props) {
               ))}
             </div>
           ))}
-          <div onClick={p.api.addPage} style={{ display: 'inline-flex', alignItems: 'center', gap: 10, border: `1.5px solid ${C.navy2}`, color: C.navy2, fontWeight: 800, fontSize: 14, letterSpacing: '0.5px', padding: '11px 18px', borderRadius: 24, margin: '16px 4px', cursor: 'pointer' }}>ADD A PAGE ▾</div>
+          <div onClick={p.api.addPage} style={{ display: 'inline-flex', alignItems: 'center', gap: 10, border: `1.5px solid ${C.navy2}`, color: C.navy2, fontWeight: 800, fontSize: 14, letterSpacing: '0.5px', padding: '11px 18px', borderRadius: 24, margin: '16px 4px 6px', cursor: 'pointer' }}>ADD A PAGE ▾</div>
+          <div onClick={() => setSitemapOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: `1.5px solid ${C.cyan}`, color: C.cyan, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '11px 16px', borderRadius: 24, margin: '0 4px 16px', cursor: 'pointer' }}>🗺 GENERATE FROM SITEMAP</div>
         </div>
       </div>
+
+      {sitemapOpen && (
+        <div onClick={() => setSitemapOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(16,28,52,.5)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 70, padding: '60px 20px', overflow: 'auto' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 18, width: 640, maxWidth: '100%', padding: '28px 30px 30px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ fontWeight: 800, fontSize: 22, color: C.inkDark, flex: 1 }}>Generate pages from a sitemap</div>
+              <span onClick={() => setSitemapOpen(false)} style={{ color: C.muted2, fontSize: 22, cursor: 'pointer' }}>✕</span>
+            </div>
+            <div style={{ color: C.muted, fontSize: 14, marginBottom: 14, lineHeight: 1.5 }}>
+              Paste your sitemap — one page per line, indent sub-pages. Each page is created with three fields:
+              <strong> Text</strong>, <strong>Images</strong> and <strong>Documents</strong>.
+            </div>
+            <textarea
+              autoFocus
+              value={sitemapText}
+              onChange={(e) => setSitemapText(e.target.value)}
+              placeholder={'- Home\n- About\n    - Our Team\n    - Our Board\n- School Info\n    - Enrolment\n    - Stationery\n- News & Events\n- Contact Us'}
+              style={{ width: '100%', minHeight: 220, border: '1px solid #e1e0e7', borderRadius: 10, padding: '14px 16px', fontFamily: 'ui-monospace, monospace', fontSize: 14, color: C.ink, outline: 'none', resize: 'vertical', lineHeight: 1.6 }}
+            />
+            <div style={{ marginTop: 12, minHeight: 22, color: parsedPages.length ? C.navy2 : C.muted2, fontSize: 14, fontWeight: 600 }}>
+              {parsedPages.length
+                ? `Will create ${parsedPages.length} page${parsedPages.length === 1 ? '' : 's'}: ${parsedPages.map((pg) => pg.name).join(' · ')}`
+                : 'Nothing to create yet — paste a sitemap above.'}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 16 }}>
+              <div onClick={() => setSitemapOpen(false)} style={{ color: '#5b5667', fontWeight: 700, fontSize: 14, padding: '12px 18px', cursor: 'pointer' }}>Cancel</div>
+              <div
+                onClick={generate}
+                style={{ background: parsedPages.length ? C.navy2 : '#c9ccd4', color: '#fff', fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '12px 24px', borderRadius: 24, cursor: parsedPages.length ? 'pointer' : 'default' }}
+              >
+                {generating ? 'CREATING…' : `CREATE ${parsedPages.length || ''} PAGE${parsedPages.length === 1 ? '' : 'S'}`}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* canvas */}
       <div className="swnz-scroll" style={{ flex: 1, overflowY: 'auto', padding: '28px 36px 60px' }}>
