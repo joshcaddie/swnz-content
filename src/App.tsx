@@ -11,6 +11,7 @@ import { TeamPage } from './routes/TeamPage'
 import { RemindersPage } from './routes/RemindersPage'
 import { ActivityPage } from './routes/ActivityPage'
 import { ResetPassword } from './routes/ResetPassword'
+import { WelcomePage } from './routes/WelcomePage'
 import { WizardPage } from './routes/WizardPage'
 import { TemplatesPage } from './routes/TemplatesPage'
 import { ClientsPage } from './routes/ClientsPage'
@@ -46,6 +47,7 @@ export default function App() {
         <Route path="/c/:token" element={<ClientPortal />} />
         <Route path="/login" element={<Login />} />
         <Route path="/reset" element={<ResetPassword />} />
+        <Route path="/welcome" element={<WelcomePage />} />
 
         {/* Team app */}
         <Route

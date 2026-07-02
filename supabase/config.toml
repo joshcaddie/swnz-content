@@ -28,9 +28,10 @@ file_size_limit = "50MiB"
 [auth]
 enabled = true
 site_url = "http://127.0.0.1:5173"
-additional_redirect_urls = ["http://127.0.0.1:5173", "https://swnz-content.onrender.com"]
+additional_redirect_urls = ["http://127.0.0.1:5173", "https://swnz-content.onrender.com", "https://content.caddiedigital.co.nz"]
 jwt_expiry = 3600
-enable_signup = true
+# Invite-only: accounts are created via the invite-user function's admin API.
+enable_signup = false
 
 [auth.email]
 enable_signup = true
