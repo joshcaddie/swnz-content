@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { FieldConfig, FieldType, Structure, StructureField } from '../lib/database.types'
 import { useTemplates } from '../api/templates'
@@ -126,14 +126,50 @@ export function WizardPage() {
     })
   }
 
+  // The request is created at most once, whichever finalize button is clicked first.
+  const created = useRef<{ id: string; token: string } | null>(null)
+  const [savedNoSend, setSavedNoSend] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const ensureCreated = async () => {
+    if (created.current) return created.current
+    const id = await createRequest.mutateAsync({ name, clientId, stageId: stages?.[0]?.id ?? null, dueDate: dueDate || null, folder, structure })
+    // Persist the settings create_request doesn't take.
+    await supabase.from('requests').update({ owner_id: ownerId, reminders_enabled: reminders, verify_email: verifyEmail }).eq('id', id)
+    const { data } = await supabase.from('requests').select('public_token').eq('id', id).single()
+    created.current = { id, token: data?.public_token ?? '' }
+    return created.current
+  }
+
   const finalize = async () => {
     setSending(true)
     try {
-      const id = await createRequest.mutateAsync({ name, clientId, stageId: stages?.[0]?.id ?? null, dueDate: dueDate || null, folder, structure })
-      // Persist the settings create_request doesn't take.
-      await supabase.from('requests').update({ owner_id: ownerId, reminders_enabled: reminders, verify_email: verifyEmail }).eq('id', id)
+      const { id } = await ensureCreated()
       if (clientId) await sendInvite(id).catch(() => {})
       navigate(`/requests/${id}`)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const saveOnly = async () => {
+    setSending(true)
+    try {
+      await ensureCreated()
+      setSavedNoSend(true)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const copyLink = async () => {
+    setSending(true)
+    try {
+      const { token } = await ensureCreated()
+      setSavedNoSend(true)
+      await navigator.clipboard.writeText(`${window.location.origin}/c/${token}`)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
     } finally {
       setSending(false)
     }
@@ -191,7 +227,17 @@ export function WizardPage() {
         />
       )}
       {step === 4 && <PreviewStep structure={structure} name={name} />}
-      {step === 5 && <FinalizeStep onSend={finalize} sending={sending} />}
+      {step === 5 && (
+        <FinalizeStep
+          onSend={finalize}
+          onSave={saveOnly}
+          onCopyLink={copyLink}
+          onOpen={() => created.current && navigate(`/requests/${created.current.id}`)}
+          sending={sending}
+          saved={savedNoSend}
+          copied={copied}
+        />
+      )}
 
       {fieldModal && <FieldModal onClose={() => setFieldModal(false)} onPick={(t, l) => { addField(t, l); setFieldModal(false) }} />}
     </div>
@@ -351,14 +397,35 @@ function PreviewStep({ structure, name }: { structure: Structure; name: string }
 }
 
 // ---------- Step 5 ----------
-function FinalizeStep({ onSend, sending }: { onSend: () => void; sending: boolean }) {
+function FinalizeStep({ onSend, onSave, onCopyLink, onOpen, sending, saved, copied }: {
+  onSend: () => void
+  onSave: () => void
+  onCopyLink: () => void
+  onOpen: () => void
+  sending: boolean
+  saved: boolean
+  copied: boolean
+}) {
+  const secondary: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 8, border: `1.5px solid ${C.navy2}`, color: C.navy2, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '13px 22px', borderRadius: 26, cursor: 'pointer', background: '#fff' }
   return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
       <div style={{ width: 620, maxWidth: '100%', background: '#fff', border: '1px solid #e9e8ee', borderRadius: 18, padding: 44, textAlign: 'center', boxShadow: '0 4px 16px rgba(40,30,60,.06)' }}>
-        <div style={{ width: 74, height: 74, borderRadius: '50%', background: '#e7f5f1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 34, margin: '0 auto 22px' }}>📨</div>
-        <div style={{ fontWeight: 800, fontSize: 28, color: C.inkDark, marginBottom: 12 }}>Ready to send</div>
-        <div style={{ color: C.muted, fontSize: 17, lineHeight: 1.6, marginBottom: 30 }}>Your request is ready. Send it to your client and we'll notify them by email, then keep you posted as they fill it in.</div>
-        <div onClick={onSend} style={{ display: 'inline-block', background: C.gradient, color: '#fff', fontWeight: 800, fontSize: 15, letterSpacing: '0.6px', padding: '16px 34px', borderRadius: 28, cursor: 'pointer', boxShadow: '0 4px 14px rgba(27,160,230,.32)' }}>{sending ? 'SENDING…' : 'SEND REQUEST'}</div>
+        <div style={{ width: 74, height: 74, borderRadius: '50%', background: '#e7f5f1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 34, margin: '0 auto 22px' }}>{saved ? '✅' : '📨'}</div>
+        <div style={{ fontWeight: 800, fontSize: 28, color: C.inkDark, marginBottom: 12 }}>{saved ? 'Saved — not sent yet' : 'Ready to send'}</div>
+        <div style={{ color: C.muted, fontSize: 17, lineHeight: 1.6, marginBottom: 30 }}>
+          {saved
+            ? 'The request is on your board. Send the email invite below, or copy the client link and share it yourself.'
+            : "Your request is ready. Send it to your client and we'll notify them by email, then keep you posted as they fill it in."}
+        </div>
+        <div onClick={() => !sending && onSend()} style={{ display: 'inline-block', background: C.gradient, color: '#fff', fontWeight: 800, fontSize: 15, letterSpacing: '0.6px', padding: '16px 34px', borderRadius: 28, cursor: 'pointer', boxShadow: '0 4px 14px rgba(27,160,230,.32)', opacity: sending ? 0.7 : 1 }}>{sending ? 'WORKING…' : 'SEND REQUEST'}</div>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 14, marginTop: 18 }}>
+          {saved
+            ? <div onClick={onOpen} style={secondary}>OPEN REQUEST</div>
+            : <div onClick={() => !sending && onSave()} style={secondary}>SAVE, DON'T SEND</div>}
+          <div onClick={() => !sending && onCopyLink()} style={{ ...secondary, border: `1.5px solid ${C.cyan}`, color: copied ? '#1d9e6f' : C.cyan }}>
+            {copied ? '✓ LINK COPIED' : '🔗 COPY CLIENT LINK'}
+          </div>
+        </div>
       </div>
     </div>
   )
