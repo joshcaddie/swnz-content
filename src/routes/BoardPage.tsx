@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   DndContext,
   PointerSensor,
@@ -30,12 +30,19 @@ export function BoardPage() {
   const del = useDeleteRequest()
   const dup = useDuplicateRequest()
 
+  const [params] = useSearchParams()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
-  const [clientFilter, setClientFilter] = useState<string | null>(null)
+  const [clientFilter, setClientFilter] = useState<string | null>(params.get('client'))
+  const [ownerFilter, setOwnerFilter] = useState<string | null>(null)
   const [menuFor, setMenuFor] = useState<string | null>(null)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
+
+  const ownerNames = useMemo(
+    () => [...new Set((cards ?? []).map((c) => c.ownerName))].sort(),
+    [cards],
+  )
 
   const filtered = useMemo(() => {
     let list = cards ?? []
@@ -45,8 +52,9 @@ export function BoardPage() {
     }
     if (statusFilter) list = list.filter((c) => c.badge === statusFilter)
     if (clientFilter) list = list.filter((c) => c.clientName === clientFilter)
+    if (ownerFilter) list = list.filter((c) => c.ownerName === ownerFilter)
     return list
-  }, [cards, search, statusFilter, clientFilter])
+  }, [cards, search, statusFilter, clientFilter, ownerFilter])
 
   const byStage = useMemo(() => {
     const map = new Map<string, BoardCard[]>()
@@ -134,6 +142,12 @@ export function BoardPage() {
           {pill(statusFilter ? `Status: ${statusFilter}` : 'Status', !!statusFilter, () => setMenuFor(menuFor === 'status' ? null : 'status'))}
           {menuFor === 'status' && (
             <Dropdown onClose={() => setMenuFor(null)} options={['All', ...STATUS_OPTIONS]} onPick={(o) => setStatusFilter(o === 'All' ? null : o)} />
+          )}
+        </div>
+        <div style={{ position: 'relative' }}>
+          {pill(ownerFilter ? `Owner: ${ownerFilter}` : 'Owner', !!ownerFilter, () => setMenuFor(menuFor === 'owner' ? null : 'owner'))}
+          {menuFor === 'owner' && (
+            <Dropdown onClose={() => setMenuFor(null)} options={['All', ...ownerNames]} onPick={(o) => setOwnerFilter(o === 'All' ? null : o)} />
           )}
         </div>
         <div style={{ position: 'relative' }}>

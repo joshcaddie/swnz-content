@@ -2,9 +2,9 @@ import { useState, type CSSProperties } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { initialsOf } from '../api/requests'
+import { useAwaitingCount } from '../api/activity'
 import { C } from '../theme'
 
-const navItem: CSSProperties = { color: '#e7e2ef', fontWeight: 500, fontSize: 17, cursor: 'pointer' }
 const qaRow: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px', borderRadius: 10, cursor: 'pointer',
 }
@@ -13,6 +13,7 @@ export function TopChrome() {
   const navigate = useNavigate()
   const location = useLocation()
   const { profile, signOut } = useAuth()
+  const { data: awaiting } = useAwaitingCount()
   const [qaOpen, setQaOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -53,18 +54,18 @@ export function TopChrome() {
 
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 34 }}>
           {tab('Requests', '/', isRequests)}
-          <div style={navItem}>Calendar</div>
-          <div onClick={() => go('/clients')} style={{ ...navItem, color: location.pathname === '/clients' ? C.cyanBright : '#e7e2ef', display: 'flex', alignItems: 'center', gap: 6 }}>
-            Clients<span style={{ fontSize: 11, opacity: 0.8 }}>▾</span>
-          </div>
-          <div style={navItem}>Team</div>
+          {tab('Calendar', '/calendar', location.pathname === '/calendar')}
+          {tab('Clients', '/clients', location.pathname === '/clients')}
+          {tab('Team', '/team', location.pathname === '/team')}
           {tab('Templates', '/templates', location.pathname === '/templates')}
-          <div style={navItem}>Reminders</div>
+          {tab('Reminders', '/reminders', location.pathname === '/reminders')}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 22, flex: 'none' }}>
-          <div style={{ position: 'relative', color: '#e7e2ef', fontSize: 21, cursor: 'pointer' }}>🔔
-            <span style={{ position: 'absolute', top: -7, right: -9, background: C.cyanBright, color: '#fff', fontSize: 11, fontWeight: 800, minWidth: 18, height: 18, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>1</span>
+          <div onClick={() => go('/activity')} title={`${awaiting ?? 0} answer(s) awaiting review`} style={{ position: 'relative', color: '#e7e2ef', fontSize: 21, cursor: 'pointer' }}>🔔
+            {(awaiting ?? 0) > 0 && (
+              <span style={{ position: 'absolute', top: -7, right: -9, background: C.cyanBright, color: '#fff', fontSize: 11, fontWeight: 800, minWidth: 18, height: 18, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>{awaiting! > 9 ? '9+' : awaiting}</span>
+            )}
           </div>
           <div style={{ position: 'relative', width: 26, height: 26, borderRadius: '50%', border: '2px solid #e7e2ef', color: '#e7e2ef', fontWeight: 800, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>?</div>
 

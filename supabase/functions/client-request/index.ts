@@ -26,7 +26,10 @@ Deno.serve(async (req) => {
     const pageIds = new Set(pages.map((p) => p.id))
     const reqSections = sections.filter((s) => pageIds.has(s.page_id))
     const sectionIds = new Set(reqSections.map((s) => s.id))
-    const reqFields = fields.filter((f) => sectionIds.has(f.section_id))
+    // Internal-only fields never leave the server for client requests.
+    const reqFields = fields.filter(
+      (f) => sectionIds.has(f.section_id) && !(f.config?.internalOnly),
+    )
 
     // Only expose what the client needs (hide internal flags).
     return json({

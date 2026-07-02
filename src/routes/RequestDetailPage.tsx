@@ -1,12 +1,17 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useRequest } from '../api/requests'
+import { useRequest, useUpdateRequest } from '../api/requests'
 import { useReview } from '../api/answers'
 import { useComments, useAddComment } from '../api/comments'
+import { useClients } from '../api/clients'
+import { useStages } from '../api/stages'
+import { useProfiles } from '../api/profiles'
 import { sendDecision } from '../api/email'
 import { useAuth } from '../lib/auth'
-import { FieldInput } from '../fields/FieldInput'
+import { supabase } from '../lib/supabase'
+import { FieldInput, type UploadedFile } from '../fields/FieldInput'
 import { isDisplayField } from '../fields/registry'
+import { Modal } from './ClientsPage'
 import type { AnswerRow, AnswerStatus } from '../lib/database.types'
 import { C, badgeStyles, formatDate } from '../theme'
 import { FullScreenMessage } from '../App'
@@ -24,10 +29,52 @@ export function RequestDetailPage() {
   const { profile } = useAuth()
   const { data, isLoading } = useRequest(id)
   const review = useReview(id)
+  const update = useUpdateRequest()
+  const { data: clients } = useClients()
+  const { data: stages } = useStages()
+  const { data: profiles } = useProfiles()
   const [selected, setSelected] = useState<string | null>(null)
   const [commentText, setCommentText] = useState('')
+  const [copied, setCopied] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [edit, setEdit] = useState<{ name: string; client_id: string | null; owner_id: string | null; due_date: string | null; status_badge: string | null; stage_id: string | null } | null>(null)
   const comments = useComments(id, selected)
   const addComment = useAddComment(id)
+
+  const copyLink = async () => {
+    const url = `${window.location.origin}/c/${data?.request.public_token}`
+    try {
+      await navigator.clipboard.writeText(url)
+    } catch {
+      prompt('Copy the client link:', url)
+    }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const openEdit = () => {
+    if (!data) return
+    setEdit({
+      name: data.request.name,
+      client_id: data.request.client_id,
+      owner_id: data.request.owner_id,
+      due_date: data.request.due_date,
+      status_badge: data.request.status_badge,
+      stage_id: data.request.stage_id,
+    })
+    setEditOpen(true)
+  }
+  const saveEdit = async () => {
+    if (!edit) return
+    await update.mutateAsync({ id, ...edit })
+    setEditOpen(false)
+  }
+
+  const openFile = async (f: UploadedFile) => {
+    const { data: signed } = await supabase.storage.from('uploads').createSignedUrl(f.path, 3600)
+    if (signed?.signedUrl) window.open(signed.signedUrl, '_blank')
+    else alert('Could not open the file.')
+  }
 
   const answersByField = useMemo(() => {
     const m = new Map<string, AnswerRow>()
@@ -135,10 +182,13 @@ export function RequestDetailPage() {
 
       {/* review pane */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, background: C.panel }}>
-        <div style={{ display: 'flex', alignItems: 'center', padding: '22px 30px', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', padding: '22px 30px', gap: 12, flexWrap: 'wrap' }}>
           <div onClick={() => navigate('/')} style={{ width: 48, height: 48, borderRadius: '50%', background: '#fff', border: '1px solid #e1e0e7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6f6a7a', fontSize: 20, cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,.05)' }}>‹</div>
           <div style={{ flex: 1 }} />
-          <div style={{ border: `1.5px solid ${C.cyan}`, color: C.cyan, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '11px 18px', borderRadius: 22, cursor: 'pointer', background: '#fff' }}>⚡ ACTIVITY</div>
+          <div onClick={copyLink} style={{ border: `1.5px solid ${C.cyan}`, color: copied ? '#1f8a4c' : C.cyan, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '11px 18px', borderRadius: 22, cursor: 'pointer', background: '#fff' }}>{copied ? '✓ COPIED' : '🔗 CLIENT LINK'}</div>
+          <div onClick={openEdit} style={{ border: `1.5px solid ${C.navy2}`, color: C.navy2, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '11px 18px', borderRadius: 22, cursor: 'pointer', background: '#fff' }}>✎ EDIT</div>
+          <div onClick={() => navigate(`/requests/${id}/edit`)} style={{ border: `1.5px solid ${C.navy2}`, color: C.navy2, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '11px 18px', borderRadius: 22, cursor: 'pointer', background: '#fff' }}>⚙ STRUCTURE</div>
+          <div onClick={() => navigate('/activity')} style={{ border: `1.5px solid ${C.cyan}`, color: C.cyan, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '11px 18px', borderRadius: 22, cursor: 'pointer', background: '#fff' }}>⚡ ACTIVITY</div>
           <div onClick={approveAll} style={{ background: C.navy2, color: '#fff', fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '13px 22px', borderRadius: 26, cursor: 'pointer' }}>APPROVE ALL SUBMITTED</div>
         </div>
 
@@ -162,7 +212,7 @@ export function RequestDetailPage() {
               )}
 
               <div style={{ fontWeight: 800, fontSize: 24, lineHeight: 1.4, color: C.inkDark, margin: '20px 0 18px' }}>{activeField.label}</div>
-              <FieldInput type={activeField.type} label={activeField.label} config={activeField.config} value={activeAnswer?.value ?? null} onChange={() => {}} readOnly />
+              <FieldInput type={activeField.type} label={activeField.label} config={activeField.config} value={activeAnswer?.value ?? null} onChange={() => {}} readOnly onOpenFile={openFile} />
 
               <div style={{ display: 'flex', alignItems: 'center', marginTop: 30, gap: 16 }}>
                 <button onClick={doApprove} disabled={!activeAnswer || activeAnswer.status === 'approved'} style={{ background: activeAnswer && activeAnswer.status !== 'approved' ? C.green : '#cfe8d6', color: '#fff', fontWeight: 800, fontSize: 14, letterSpacing: '0.4px', padding: '14px 24px', borderRadius: 28, border: 'none', cursor: activeAnswer && activeAnswer.status !== 'approved' ? 'pointer' : 'default' }}>APPROVE</button>
@@ -199,6 +249,57 @@ export function RequestDetailPage() {
           </div>
         </div>
       </div>
+
+      {editOpen && edit && (
+        <Modal title="Edit request" onClose={() => setEditOpen(false)} onSave={saveEdit}>
+          <EditField label="Request name">
+            <input value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} style={editInput} />
+          </EditField>
+          <div style={{ display: 'flex', gap: 16 }}>
+            <EditField label="Client" grow>
+              <select value={edit.client_id ?? ''} onChange={(e) => setEdit({ ...edit, client_id: e.target.value || null })} style={editInput}>
+                <option value="">No client</option>
+                {(clients ?? []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </EditField>
+            <EditField label="Owner" grow>
+              <select value={edit.owner_id ?? ''} onChange={(e) => setEdit({ ...edit, owner_id: e.target.value || null })} style={editInput}>
+                <option value="">Unassigned</option>
+                {(profiles ?? []).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+            </EditField>
+          </div>
+          <div style={{ display: 'flex', gap: 16 }}>
+            <EditField label="Due date" grow>
+              <input type="date" value={edit.due_date ?? ''} onChange={(e) => setEdit({ ...edit, due_date: e.target.value || null })} style={editInput} />
+            </EditField>
+            <EditField label="Status badge" grow>
+              <select value={edit.status_badge ?? ''} onChange={(e) => setEdit({ ...edit, status_badge: e.target.value || null })} style={editInput}>
+                <option value="">None (featured card)</option>
+                {['PUBLISHED', 'OVERDUE', 'ARCHIVED', 'DRAFT'].map((b) => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </EditField>
+          </div>
+          <EditField label="Board column">
+            <select value={edit.stage_id ?? ''} onChange={(e) => setEdit({ ...edit, stage_id: e.target.value || null })} style={editInput}>
+              {(stages ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </EditField>
+        </Modal>
+      )}
+    </div>
+  )
+}
+
+const editInput: React.CSSProperties = {
+  width: '100%', border: '1px solid #e1e0e7', borderRadius: 10, padding: '13px 15px', fontFamily: 'inherit', fontSize: 16, color: C.ink, outline: 'none', background: '#fff',
+}
+
+function EditField({ label, children, grow }: { label: string; children: React.ReactNode; grow?: boolean }) {
+  return (
+    <div style={{ marginBottom: 16, flex: grow ? 1 : undefined }}>
+      <div style={{ fontWeight: 700, fontSize: 14, color: '#4b4556', marginBottom: 8 }}>{label}</div>
+      {children}
     </div>
   )
 }

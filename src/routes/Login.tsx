@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
+import { supabase } from '../lib/supabase'
 import { C } from '../theme'
 
 export function Login() {
@@ -72,6 +73,21 @@ export function Login() {
               {mode === 'in' ? 'Sign up' : 'Sign in'}
             </span>
           </div>
+          {mode === 'in' && (
+            <div style={{ marginTop: 10, fontSize: 14, textAlign: 'center' }}>
+              <span
+                onClick={async () => {
+                  if (!email) { setError('Enter your email above first, then click "Forgot password".'); return }
+                  setError(null)
+                  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset` })
+                  setInfo(error ? error.message : `Password reset link sent to ${email}.`)
+                }}
+                style={{ color: C.muted2, textDecoration: 'underline', cursor: 'pointer' }}
+              >
+                Forgot password?
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>

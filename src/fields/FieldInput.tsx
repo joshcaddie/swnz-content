@@ -18,6 +18,8 @@ interface Props {
   onChange: (v: Json) => void
   readOnly?: boolean
   onUpload?: (file: File) => Promise<UploadedFile>
+  /** Team-side: open/download an uploaded file (e.g. via a signed URL). */
+  onOpenFile?: (file: UploadedFile) => void
 }
 
 const box: React.CSSProperties = {
@@ -28,7 +30,7 @@ function readOnlyBg(ro: boolean) {
   return ro ? '#f7f7fa' : '#fff'
 }
 
-export function FieldInput({ type, label, config, value, onChange, readOnly, onUpload }: Props) {
+export function FieldInput({ type, label, config, value, onChange, readOnly, onUpload, onOpenFile }: Props) {
   const ro = !!readOnly
   const style = { ...box, background: readOnlyBg(ro) }
   const options = config.options ?? []
@@ -123,7 +125,7 @@ export function FieldInput({ type, label, config, value, onChange, readOnly, onU
 
     case 'image':
     case 'file':
-      return <FileField value={value} onChange={onChange} ro={ro} onUpload={onUpload} accept={type === 'image' ? 'image/*' : undefined} maxFiles={config.maxFiles} />
+      return <FileField value={value} onChange={onChange} ro={ro} onUpload={onUpload} onOpenFile={onOpenFile} accept={type === 'image' ? 'image/*' : undefined} maxFiles={config.maxFiles} />
 
     case 'table':
     case 'signature':
@@ -166,11 +168,12 @@ function DateRange({ value, onChange, ro, style }: { value: Json; onChange: (v: 
   )
 }
 
-function FileField({ value, onChange, ro, onUpload, accept, maxFiles }: {
+function FileField({ value, onChange, ro, onUpload, onOpenFile, accept, maxFiles }: {
   value: Json
   onChange: (v: Json) => void
   ro: boolean
   onUpload?: (file: File) => Promise<UploadedFile>
+  onOpenFile?: (file: UploadedFile) => void
   accept?: string
   maxFiles?: number
 }) {
@@ -198,7 +201,13 @@ function FileField({ value, onChange, ro, onUpload, accept, maxFiles }: {
         {files.map((f, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#eef6fb', border: '1px solid #d7e8f4', borderRadius: 8, padding: '8px 12px', fontSize: 14, color: C.navy2 }}>
             <span>{accept?.startsWith('image') ? '🖼' : '🗎'}</span>
-            <span>{f.filename}</span>
+            <span
+              onClick={() => onOpenFile?.(f)}
+              style={onOpenFile ? { cursor: 'pointer', textDecoration: 'underline' } : undefined}
+              title={onOpenFile ? 'Open file' : undefined}
+            >
+              {f.filename}
+            </span>
             {!ro && <span onClick={() => onChange(files.filter((_, j) => j !== i) as unknown as Json)} style={{ cursor: 'pointer', color: '#c9491f', fontWeight: 800 }}>✕</span>}
           </div>
         ))}

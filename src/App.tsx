@@ -4,6 +4,12 @@ import { TeamLayout } from './components/TeamLayout'
 import { Login } from './routes/Login'
 import { BoardPage } from './routes/BoardPage'
 import { RequestDetailPage } from './routes/RequestDetailPage'
+import { RequestBuilderPage } from './routes/RequestBuilderPage'
+import { CalendarPage } from './routes/CalendarPage'
+import { TeamPage } from './routes/TeamPage'
+import { RemindersPage } from './routes/RemindersPage'
+import { ActivityPage } from './routes/ActivityPage'
+import { ResetPassword } from './routes/ResetPassword'
 import { WizardPage } from './routes/WizardPage'
 import { TemplatesPage } from './routes/TemplatesPage'
 import { ClientsPage } from './routes/ClientsPage'
@@ -30,6 +36,7 @@ export default function App() {
       {/* Public client portal — no team auth, no chrome */}
       <Route path="/c/:token" element={<ClientPortal />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/reset" element={<ResetPassword />} />
 
       {/* Team app */}
       <Route
@@ -42,8 +49,13 @@ export default function App() {
         <Route path="/" element={<BoardPage />} />
         <Route path="/requests/new" element={<WizardPage />} />
         <Route path="/requests/:id" element={<RequestDetailPage />} />
+        <Route path="/requests/:id/edit" element={<RequestBuilderPage />} />
         <Route path="/templates" element={<TemplatesPage />} />
         <Route path="/clients" element={<ClientsPage />} />
+        <Route path="/calendar" element={<CalendarPage />} />
+        <Route path="/team" element={<TeamPage />} />
+        <Route path="/reminders" element={<RemindersPage />} />
+        <Route path="/activity" element={<ActivityPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

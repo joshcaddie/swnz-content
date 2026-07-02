@@ -1,18 +1,23 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useClients, useCreateClient, useDeleteClient, useUpdateClient } from '../api/clients'
 import type { ClientRow } from '../lib/database.types'
-import { initialsOf } from '../api/requests'
+import { initialsOf, useBoard } from '../api/requests'
 import { C } from '../theme'
 import { FullScreenMessage } from '../App'
 
 const COLORS = ['#9fb6e6', '#86d29a', '#5fd0c0', '#f49ac1', '#c9a8e9', '#f2c94c', '#5cd1b8', '#7fd6a0']
 
 export function ClientsPage() {
+  const navigate = useNavigate()
   const { data: clients, isLoading } = useClients()
+  const { data: cards } = useBoard()
   const create = useCreateClient()
   const update = useUpdateClient()
   const del = useDeleteClient()
   const [editing, setEditing] = useState<Partial<ClientRow> | null>(null)
+
+  const requestCount = (name: string) => (cards ?? []).filter((c) => c.clientName === name).length
 
   if (isLoading) return <FullScreenMessage text="Loading clients…" />
 
@@ -47,7 +52,11 @@ export function ClientsPage() {
               </div>
             </div>
             {c.contact_email && <div style={{ color: '#7b7686', fontSize: 14, marginTop: 12 }}>✉ {c.contact_email}</div>}
-            <div style={{ display: 'flex', gap: 16, marginTop: 16 }}>
+            <div style={{ display: 'flex', gap: 16, marginTop: 16, alignItems: 'center' }}>
+              <span onClick={() => navigate(`/?client=${encodeURIComponent(c.name)}`)} style={{ color: C.navy2, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+                {requestCount(c.name)} request{requestCount(c.name) === 1 ? '' : 's'} →
+              </span>
+              <span style={{ flex: 1 }} />
               <span onClick={() => setEditing(c)} style={{ color: C.cyan, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Edit</span>
               <span onClick={() => { if (confirm(`Delete ${c.name}?`)) del.mutate(c.id) }} style={{ color: '#c9491f', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Delete</span>
             </div>

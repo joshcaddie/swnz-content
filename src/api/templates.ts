@@ -26,6 +26,22 @@ export function useCreateTemplate() {
   })
 }
 
+/** Snapshot an existing request's structure as a reusable template. */
+export function useSaveAsTemplate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ requestId, name, description }: { requestId: string; name: string; description?: string }) => {
+      const { data: structure, error: e1 } = await supabase.rpc('request_structure', { p_request: requestId })
+      if (e1) throw e1
+      const { error: e2 } = await supabase
+        .from('templates')
+        .insert({ name, description: description ?? null, structure: structure as unknown as Structure })
+      if (e2) throw e2
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.templates }),
+  })
+}
+
 export function useDeleteTemplate() {
   const qc = useQueryClient()
   return useMutation({

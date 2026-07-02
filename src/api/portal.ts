@@ -66,6 +66,15 @@ export async function portalUploadFile(token: string, fieldId: string, file: Fil
   })
 }
 
+/** Repeatable sections: ask the server to clone the section's fields for another response. */
+export async function portalRepeatSection(token: string, sectionId: string) {
+  const { data, error } = await supabase.functions.invoke('client-answer', {
+    body: { token, action: 'repeat_section', section_id: sectionId },
+  })
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
+}
+
 export async function portalVerifySend(token: string) {
   const { data, error } = await supabase.functions.invoke('client-verify', { body: { token, action: 'send' } })
   if (error) throw error

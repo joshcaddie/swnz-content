@@ -49,6 +49,12 @@ export type FieldConfig = {
   internalOnly?: boolean
   placeholder?: string
   conditions?: boolean
+  /** Stable identity for cross-field references (conditions). Falls back to the DB row id. */
+  key?: string
+  /** Show this field only when the referenced field's answer equals the given value. */
+  condition?: { whenKey: string; equals: string }
+  /** Marks a field created by a client "add another" repeat (hidden from base clone set). */
+  _rep?: number
   [key: string]: Json | undefined
 }
 

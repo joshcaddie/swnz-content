@@ -1,10 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import type { Json } from '../lib/database.types'
-import { portalLoad, portalSave, portalUploadFile, portalVerifySend, portalVerifyCheck, type PortalData } from '../api/portal'
+import type { Json, RequestFieldRow } from '../lib/database.types'
+import { portalLoad, portalSave, portalUploadFile, portalRepeatSection, portalVerifySend, portalVerifyCheck, type PortalData } from '../api/portal'
 import { FieldInput } from '../fields/FieldInput'
 import { isDisplayField } from '../fields/registry'
 import { C } from '../theme'
+
+/** Loose comparison for condition triggers ("Yes" matches "yes ", option arrays, etc.). */
+function condMatch(v: Json | undefined, equals: string): boolean {
+  if (v == null) return false
+  const want = equals.trim().toLowerCase()
+  if (Array.isArray(v)) return v.some((x) => String(x).trim().toLowerCase() === want)
+  return String(v).trim().toLowerCase() === want
+}
 
 export function ClientPortal() {
   const { token = '' } = useParams()
@@ -25,7 +33,27 @@ export function ClientPortal() {
       .catch((e) => setError(String(e.message ?? e)))
   }, [token])
 
-  const inputFields = useMemo(() => (data ? data.fields.filter((f) => !isDisplayField(f.type) && !f.config?.internalOnly) : []), [data])
+  // Conditions: a field with config.condition only shows when its trigger answer matches.
+  const keyToFieldId = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const f of data?.fields ?? []) m.set(f.config?.key ?? f.id, f.id)
+    return m
+  }, [data])
+  const isVisible = useMemo(
+    () => (f: RequestFieldRow) => {
+      const c = f.config?.condition
+      if (!c || !c.whenKey) return true
+      const ctrlId = keyToFieldId.get(c.whenKey)
+      if (!ctrlId) return true
+      return condMatch(values[ctrlId], c.equals)
+    },
+    [keyToFieldId, values],
+  )
+
+  const inputFields = useMemo(
+    () => (data ? data.fields.filter((f) => !isDisplayField(f.type) && !f.config?.internalOnly && isVisible(f)) : []),
+    [data, isVisible],
+  )
   const total = inputFields.length
   const answered = useMemo(
     () => inputFields.filter((f) => hasValue(values[f.id])).length,
@@ -37,6 +65,13 @@ export function ClientPortal() {
   if (!verified) return <VerifyGate token={token} onVerified={() => setVerified(true)} />
 
   const persist = async (submit: boolean) => {
+    if (submit) {
+      const missing = inputFields.filter((f) => f.config?.required && !hasValue(values[f.id]))
+      if (missing.length > 0) {
+        setSavedNote(`⚠ Please complete ${missing.length} required field${missing.length > 1 ? 's' : ''} (marked *) before submitting.`)
+        return
+      }
+    }
     setSaving(submit ? 'submitting' : 'saving')
     setSavedNote(null)
     try {
@@ -47,6 +82,18 @@ export function ClientPortal() {
       setSavedNote(`Could not save: ${(e as Error).message}`)
     } finally {
       setSaving('idle')
+    }
+  }
+
+  const addAnother = async (sectionId: string) => {
+    try {
+      await portalRepeatSection(token, sectionId)
+      const d = await portalLoad(token)
+      setData(d)
+      // keep local unsaved edits on top of refreshed answers
+      setValues((prev) => ({ ...Object.fromEntries(d.answers.map((a) => [a.field_id, a.value])), ...prev }))
+    } catch (e) {
+      setSavedNote(`Could not add another response: ${(e as Error).message}`)
     }
   }
 
@@ -79,7 +126,7 @@ export function ClientPortal() {
                     <div key={sec.id} style={{ background: '#fff', border: '1px solid #e9e8ee', borderRadius: 16, padding: '28px 32px', marginBottom: 18, boxShadow: '0 2px 10px rgba(40,30,60,.05)' }}>
                       <div style={{ fontWeight: 800, fontSize: 19, color: C.inkDark, marginBottom: 6 }}>{sec.name}</div>
                       {sec.instructions && <div style={{ color: C.muted, fontSize: 14, marginBottom: 16 }}>{sec.instructions}</div>}
-                      {fields.filter((f) => !f.config?.internalOnly).map((f) => {
+                      {fields.filter((f) => !f.config?.internalOnly && isVisible(f)).map((f) => {
                         const display = isDisplayField(f.type)
                         return (
                           <div key={f.id} style={{ marginTop: display ? 18 : 22 }}>
@@ -102,6 +149,14 @@ export function ClientPortal() {
                           </div>
                         )
                       })}
+                      {sec.repeatable && (
+                        <div
+                          onClick={() => addAnother(sec.id)}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 22, border: `1.5px dashed ${C.cyan}`, color: C.cyan, fontWeight: 700, fontSize: 14, padding: '11px 18px', borderRadius: 24, cursor: 'pointer' }}
+                        >
+                          ＋ Add another response
+                        </div>
+                      )}
                     </div>
                   )
                 })}

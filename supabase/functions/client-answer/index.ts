@@ -9,7 +9,8 @@ Deno.serve(async (req) => {
   if (pre) return pre
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405)
   try {
-    const { token, answers, submit } = await req.json()
+    const body = await req.json()
+    const { token, answers, submit } = body
     const db = serviceClient()
     const request = await requestByToken(db, token)
     if (!request) return json({ error: 'not_found' }, 404)
@@ -19,6 +20,28 @@ Deno.serve(async (req) => {
     const pageIds = new Set(pages.map((p) => p.id))
     const sectionIds = new Set(sections.filter((s) => pageIds.has(s.page_id)).map((s) => s.id))
     const validFieldIds = new Set(fields.filter((f) => sectionIds.has(f.section_id)).map((f) => f.id))
+
+    // "Add another response" for repeatable sections: clone the section's base fields.
+    if (body.action === 'repeat_section') {
+      const section = sections.find((s) => s.id === body.section_id && pageIds.has(s.page_id))
+      if (!section || !section.repeatable) return json({ error: 'not_repeatable' }, 400)
+      const secFields = fields.filter((f) => f.section_id === section.id)
+      const base = secFields.filter((f) => !f.config?._rep)
+      if (base.length === 0) return json({ error: 'empty_section' }, 400)
+      const repNum = Math.max(1, ...secFields.map((f) => Number(f.config?._rep) || 1)) + 1
+      let pos = Math.max(...secFields.map((f) => f.position)) + 1
+      const clones = base.map((f) => ({
+        section_id: section.id,
+        type: f.type,
+        label: `${f.label} (${repNum})`,
+        tag: f.tag,
+        config: { ...f.config, _rep: repNum, key: crypto.randomUUID().slice(0, 8) },
+        position: pos++,
+      }))
+      const { error } = await db.from('request_fields').insert(clones)
+      if (error) return json({ error: error.message }, 500)
+      return json({ ok: true, added: clones.length })
+    }
 
     const incoming = (Array.isArray(answers) ? answers : []).filter((a) => validFieldIds.has(a.field_id))
     if (incoming.length === 0) return json({ error: 'no_valid_answers' }, 400)
