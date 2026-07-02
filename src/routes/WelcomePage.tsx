@@ -10,7 +10,7 @@ import { C } from '../theme'
  */
 export function WelcomePage() {
   const navigate = useNavigate()
-  const { session, profile, loading } = useAuth()
+  const { session, profile, loading, refreshProfile } = useAuth()
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -42,6 +42,9 @@ export function WelcomePage() {
           .update({ ...(name.trim() ? { name: name.trim() } : {}), invite_pending: false })
           .eq('id', session.user.id)
       }
+      // The BrandGate redirects pending profiles back here — make sure the cached
+      // profile reflects the cleared flag BEFORE we navigate, or we bounce back.
+      await refreshProfile()
       navigate('/', { replace: true })
     } finally {
       setBusy(false)

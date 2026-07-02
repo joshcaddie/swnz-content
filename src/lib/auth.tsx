@@ -9,6 +9,8 @@ interface AuthState {
   loading: boolean
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
+  /** Re-fetch the profile row (e.g. after finishing invite setup clears invite_pending). */
+  refreshProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined)
@@ -60,8 +62,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null)
   }
 
+  const refreshProfile = async () => {
+    const uid = session?.user?.id
+    if (!uid) return
+    const { data } = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle()
+    setProfile(data ?? null)
+  }
+
   return (
-    <AuthContext.Provider value={{ session, profile, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ session, profile, loading, signIn, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   )
