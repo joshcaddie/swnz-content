@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import JSZip from 'jszip'
 import type { FieldConfig, FieldType, Json } from '../lib/database.types'
 import { RichTextEditor, RichTextView } from '../components/RichText'
 import { C } from '../theme'
@@ -27,6 +28,8 @@ interface Props {
   onUpload?: (file: File) => Promise<UploadedFile>
   /** Team-side: open/download an uploaded file (e.g. via a signed URL). */
   onOpenFile?: (file: UploadedFile) => void
+  /** Resolve a fetchable URL for a file — enables "Download all" as a zip on multi-file fields. */
+  onFileUrl?: (file: UploadedFile) => Promise<string>
   /** Portal-side: generate draft content for text fields from a client prompt. */
   onAI?: (prompt: string) => Promise<string>
 }
@@ -39,7 +42,7 @@ function readOnlyBg(ro: boolean) {
   return ro ? '#f7f7fa' : '#fff'
 }
 
-export function FieldInput({ type, label, config, value, onChange, readOnly, onUpload, onOpenFile, onAI }: Props) {
+export function FieldInput({ type, label, config, value, onChange, readOnly, onUpload, onOpenFile, onFileUrl, onAI }: Props) {
   const ro = !!readOnly
   const style = { ...box, background: readOnlyBg(ro) }
   const options = config.options ?? []
@@ -150,7 +153,7 @@ export function FieldInput({ type, label, config, value, onChange, readOnly, onU
 
     case 'image':
     case 'file':
-      return <FileField value={value} onChange={onChange} ro={ro} onUpload={onUpload} onOpenFile={onOpenFile} accept={type === 'image' ? 'image/*' : undefined} maxFiles={config.maxFiles} />
+      return <FileField value={value} onChange={onChange} ro={ro} onUpload={onUpload} onOpenFile={onOpenFile} onFileUrl={onFileUrl} zipName={label} accept={type === 'image' ? 'image/*' : undefined} maxFiles={config.maxFiles} />
 
     case 'table':
     case 'signature':
@@ -261,12 +264,14 @@ function DateRange({ value, onChange, ro, style }: { value: Json; onChange: (v: 
   )
 }
 
-function FileField({ value, onChange, ro, onUpload, onOpenFile, accept, maxFiles }: {
+function FileField({ value, onChange, ro, onUpload, onOpenFile, onFileUrl, zipName, accept, maxFiles }: {
   value: Json
   onChange: (v: Json) => void
   ro: boolean
   onUpload?: (file: File) => Promise<UploadedFile>
   onOpenFile?: (file: UploadedFile) => void
+  onFileUrl?: (file: UploadedFile) => Promise<string>
+  zipName?: string
   accept?: string
   maxFiles?: number
 }) {
@@ -277,6 +282,39 @@ function FileField({ value, onChange, ro, onUpload, onOpenFile, accept, maxFiles
   filesRef.current = files
   const [pending, setPending] = useState<string[]>([])
   const [failed, setFailed] = useState<string[]>([])
+  const [zipping, setZipping] = useState(false)
+  const [zipErr, setZipErr] = useState<string | null>(null)
+
+  const downloadAll = async () => {
+    if (!onFileUrl || zipping) return
+    setZipping(true); setZipErr(null)
+    try {
+      const zip = new JSZip()
+      const used = new Set<string>()
+      for (const f of files) {
+        const url = await onFileUrl(f)
+        const blob = await fetch(url).then((r) => {
+          if (!r.ok) throw new Error(`download failed for ${f.filename}`)
+          return r.blob()
+        })
+        // Duplicate filenames get a numeric prefix so nothing is overwritten in the zip.
+        let name = f.filename || 'file'
+        for (let n = 2; used.has(name); n++) name = `${n}-${f.filename}`
+        used.add(name)
+        zip.file(name, blob)
+      }
+      const out = await zip.generateAsync({ type: 'blob' })
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(out)
+      a.download = `${(zipName || 'files').replace(/[^a-zA-Z0-9 ._-]/g, '').trim() || 'files'}.zip`
+      a.click()
+      URL.revokeObjectURL(a.href)
+    } catch (e) {
+      setZipErr((e as Error).message)
+    } finally {
+      setZipping(false)
+    }
+  }
 
   const handle = (list: FileList | null) => {
     if (!list || !onUpload) return
@@ -328,6 +366,15 @@ function FileField({ value, onChange, ro, onUpload, onOpenFile, accept, maxFiles
           <input type="file" accept={accept} multiple hidden onChange={(e) => { handle(e.target.files); e.target.value = '' }} />
         </label>
       )}
+      {onFileUrl && files.length > 1 && (
+        <div
+          onClick={downloadAll}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginLeft: !ro && onUpload && !full ? 12 : 0, border: `1.5px solid ${C.navy2}`, color: C.navy2, fontWeight: 700, fontSize: 14, padding: '12px 18px', borderRadius: 12, cursor: 'pointer', opacity: zipping ? 0.7 : 1 }}
+        >
+          {zipping ? 'Preparing zip…' : `⬇ Download all (${files.length})`}
+        </div>
+      )}
+      {zipErr && <Hint><span style={{ color: '#c9491f' }}>Could not build the zip: {zipErr}</span></Hint>}
       {full && <Hint>Maximum of {maxFiles} file{maxFiles === 1 ? '' : 's'} reached.</Hint>}
       {failed.length > 0 && <Hint><span style={{ color: '#c9491f' }}>Could not upload: {failed.join(', ')} — please try again.</span></Hint>}
       {ro && files.length === 0 && <Hint>No files uploaded.</Hint>}

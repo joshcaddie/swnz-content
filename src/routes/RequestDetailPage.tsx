@@ -70,15 +70,20 @@ export function RequestDetailPage() {
     setEditOpen(false)
   }
 
-  const openFile = async (f: UploadedFile) => {
+  const fileUrl = async (f: UploadedFile) => {
     const path = fileStoragePath(f)
-    if (!path) {
-      alert('This file has no stored path — ask the client to re-upload it.')
-      return
-    }
+    if (!path) throw new Error('this file has no stored path — ask the client to re-upload it')
     const { data: signed, error } = await supabase.storage.from('uploads').createSignedUrl(path, 3600, { download: f.filename })
-    if (signed?.signedUrl) window.open(signed.signedUrl, '_blank')
-    else alert(`Could not open the file${error ? `: ${error.message}` : '.'}`)
+    if (!signed?.signedUrl) throw new Error(error?.message ?? 'could not sign the file URL')
+    return signed.signedUrl
+  }
+
+  const openFile = async (f: UploadedFile) => {
+    try {
+      window.open(await fileUrl(f), '_blank')
+    } catch (e) {
+      alert(`Could not open the file: ${(e as Error).message}`)
+    }
   }
 
   const answersByField = useMemo(() => {
@@ -217,7 +222,7 @@ export function RequestDetailPage() {
               )}
 
               <div style={{ fontWeight: 800, fontSize: 24, lineHeight: 1.4, color: C.inkDark, margin: '20px 0 18px' }}>{activeField.label}</div>
-              <FieldInput type={activeField.type} label={activeField.label} config={activeField.config} value={activeAnswer?.value ?? null} onChange={() => {}} readOnly onOpenFile={openFile} />
+              <FieldInput type={activeField.type} label={activeField.label} config={activeField.config} value={activeAnswer?.value ?? null} onChange={() => {}} readOnly onOpenFile={openFile} onFileUrl={fileUrl} />
 
               <div style={{ display: 'flex', alignItems: 'center', marginTop: 30, gap: 16 }}>
                 <button onClick={doApprove} disabled={!activeAnswer || activeAnswer.status === 'approved'} style={{ background: activeAnswer && activeAnswer.status !== 'approved' ? C.green : '#cfe8d6', color: '#fff', fontWeight: 800, fontSize: 14, letterSpacing: '0.4px', padding: '14px 24px', borderRadius: 28, border: 'none', cursor: activeAnswer && activeAnswer.status !== 'approved' ? 'pointer' : 'default' }}>APPROVE</button>

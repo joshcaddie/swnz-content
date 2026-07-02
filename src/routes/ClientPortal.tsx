@@ -99,12 +99,15 @@ export function ClientPortal() {
 
   const setVal = (id: string, v: Json) => setValues((prev) => ({ ...prev, [id]: v }))
 
-  const openFile = async (f: UploadedFile) => {
+  const fileUrl = async (f: UploadedFile) => {
     const path = fileStoragePath(f)
-    if (!path) return
+    if (!path) throw new Error('this file has no stored path')
+    return portalFileUrl(token, path, f.filename)
+  }
+
+  const openFile = async (f: UploadedFile) => {
     try {
-      const url = await portalFileUrl(token, path, f.filename)
-      window.open(url, '_blank')
+      window.open(await fileUrl(f), '_blank')
     } catch (e) {
       setSavedNote(`Could not open file: ${(e as Error).message}`)
     }
@@ -157,6 +160,7 @@ export function ClientPortal() {
                               onChange={(v) => setVal(f.id, v)}
                               onUpload={(file) => portalUploadFile(token, f.id, file)}
                               onOpenFile={openFile}
+                              onFileUrl={fileUrl}
                               onAI={
                                 f.type === 'single_line' || f.type === 'multiline' || f.type === 'formatted'
                                   ? (prompt) => portalAiGenerate(token, f.id, prompt)
