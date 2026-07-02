@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { FieldConfig, FieldType, Json } from '../lib/database.types'
 import { RichTextEditor, RichTextView } from '../components/RichText'
 import { C } from '../theme'
@@ -271,26 +271,36 @@ function FileField({ value, onChange, ro, onUpload, onOpenFile, accept, maxFiles
   maxFiles?: number
 }) {
   const files = Array.isArray(value) ? (value as unknown as UploadedFile[]) : []
-  const [busy, setBusy] = useState(false)
+  // Uploads run in parallel and each appends on completion; the ref keeps
+  // late completions from clobbering files added (or removed) in the meantime.
+  const filesRef = useRef(files)
+  filesRef.current = files
+  const [pending, setPending] = useState<string[]>([])
+  const [failed, setFailed] = useState<string[]>([])
 
-  const handle = async (list: FileList | null) => {
+  const handle = (list: FileList | null) => {
     if (!list || !onUpload) return
-    setBusy(true)
-    try {
-      const added: UploadedFile[] = []
-      for (const f of Array.from(list)) {
-        if (maxFiles && files.length + added.length >= maxFiles) break
-        added.push(await onUpload(f))
-      }
-      onChange([...files, ...added] as unknown as Json)
-    } finally {
-      setBusy(false)
+    setFailed([])
+    const room = maxFiles ? Math.max(0, maxFiles - filesRef.current.length - pending.length) : list.length
+    for (const f of Array.from(list).slice(0, room)) {
+      setPending((p) => [...p, f.name])
+      onUpload(f)
+        .then((uploaded) => {
+          filesRef.current = [...filesRef.current, uploaded]
+          onChange(filesRef.current as unknown as Json)
+        })
+        .catch(() => setFailed((x) => [...x, f.name]))
+        .finally(() => setPending((p) => {
+          const i = p.indexOf(f.name)
+          return i < 0 ? p : [...p.slice(0, i), ...p.slice(i + 1)]
+        }))
     }
   }
 
+  const full = !!maxFiles && files.length + pending.length >= maxFiles
   return (
     <div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: files.length ? 12 : 0 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: files.length + pending.length ? 12 : 0 }}>
         {files.map((f, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#eef6fb', border: '1px solid #d7e8f4', borderRadius: 8, padding: '8px 12px', fontSize: 14, color: C.navy2 }}>
             <span>{accept?.startsWith('image') ? '🖼' : '🗎'}</span>
@@ -304,13 +314,22 @@ function FileField({ value, onChange, ro, onUpload, onOpenFile, accept, maxFiles
             {!ro && <span onClick={() => onChange(files.filter((_, j) => j !== i) as unknown as Json)} style={{ cursor: 'pointer', color: '#c9491f', fontWeight: 800 }}>✕</span>}
           </div>
         ))}
+        {pending.map((name, i) => (
+          <div key={`p${i}`} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f6f5fa', border: '1px dashed #cfcdd9', borderRadius: 8, padding: '8px 12px', fontSize: 14, color: C.muted2 }}>
+            <span className="swnz-spin" style={{ display: 'inline-block' }}>◌</span>
+            <span>{name}</span>
+            <span style={{ fontSize: 12 }}>uploading…</span>
+          </div>
+        ))}
       </div>
-      {!ro && onUpload && (
+      {!ro && onUpload && !full && (
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: `1.5px dashed ${C.cyan}`, color: C.cyan, fontWeight: 700, fontSize: 14, padding: '12px 18px', borderRadius: 12, cursor: 'pointer' }}>
-          {busy ? 'Uploading…' : accept?.startsWith('image') ? '＋ Add image(s)' : '＋ Add file(s)'}
-          <input type="file" accept={accept} multiple hidden onChange={(e) => handle(e.target.files)} />
+          {accept?.startsWith('image') ? '＋ Add image(s)' : '＋ Add file(s)'}
+          <input type="file" accept={accept} multiple hidden onChange={(e) => { handle(e.target.files); e.target.value = '' }} />
         </label>
       )}
+      {full && <Hint>Maximum of {maxFiles} file{maxFiles === 1 ? '' : 's'} reached.</Hint>}
+      {failed.length > 0 && <Hint><span style={{ color: '#c9491f' }}>Could not upload: {failed.join(', ')} — please try again.</span></Hint>}
       {ro && files.length === 0 && <Hint>No files uploaded.</Hint>}
     </div>
   )

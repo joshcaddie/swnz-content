@@ -75,3 +75,10 @@ textarea::placeholder {
   margin: 0 0 16px;
   padding-left: 24px;
 }
+
+@keyframes swnz-spin {
+  to { transform: rotate(360deg); }
+}
+.swnz-spin {
+  animation: swnz-spin 0.9s linear infinite;
+}

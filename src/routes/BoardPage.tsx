@@ -126,7 +126,6 @@ export function BoardPage() {
       <div style={{ display: 'flex', alignItems: 'center', padding: '18px 30px 0', gap: 34, background: C.bg }}>
         <div style={{ display: 'flex', gap: 32 }}>
           <div style={{ color: C.cyan, fontWeight: 800, fontSize: 15, letterSpacing: '0.8px', paddingBottom: 12, borderBottom: `3px solid ${C.cyan}` }}>REQUESTS</div>
-          <div style={{ color: C.muted, fontWeight: 700, fontSize: 15, letterSpacing: '0.8px', paddingBottom: 12, cursor: 'pointer' }}>RECURRING/BULK</div>
         </div>
         <div style={{ flex: 1 }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingBottom: 8 }}>
