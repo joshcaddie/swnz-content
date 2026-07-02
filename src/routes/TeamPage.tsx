@@ -29,11 +29,11 @@ export function TeamPage() {
         body: {
           kind: 'custom',
           to: invEmail.trim(),
-          subject: "You're invited to SWNZ Content",
-          heading: 'Join the SWNZ Content team',
+          subject: "You're invited to Get Content",
+          heading: 'Join the Get Content team',
           body: `<p>Kia ora${invName ? ` ${invName}` : ''},</p>
-                 <p>You've been invited to the School Websites New Zealand content desk —
-                 where we build and review website content requests for our schools.</p>
+                 <p>You've been invited to Get Content —
+                 where we build and review website content requests for our clients.</p>
                  <p><a href="${signupUrl}" style="display:inline-block;background:#1d3a5f;color:#fff;font-weight:700;text-decoration:none;padding:13px 26px;border-radius:26px;margin-top:10px;">Create your account</a></p>
                  <p style="color:#6f6a7a;font-size:13px;">Use this email address (${invEmail.trim()}) when signing up, and click "Sign up" on the login page.</p>`,
         },

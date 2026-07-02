@@ -43,7 +43,7 @@ export function Login() {
         <div style={{ width: 420, maxWidth: '100%', background: '#fff', borderRadius: 18, padding: 40, boxShadow: '0 10px 40px rgba(16,28,52,.12)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
             <img src="/assets/swnz-icon.png" alt="SWNZ" style={{ width: 46, height: 46 }} />
-            <div style={{ fontWeight: 800, fontSize: 20, color: C.navy }}>SWNZ Content</div>
+            <div style={{ fontWeight: 800, fontSize: 20, color: C.navy }}>Get Content</div>
           </div>
           <div style={{ fontWeight: 800, fontSize: 24, color: C.inkDark, marginBottom: 6 }}>
             {mode === 'in' ? 'Sign in' : 'Create your account'}
