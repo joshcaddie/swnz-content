@@ -58,12 +58,14 @@ export async function portalUploadFile(token: string, fieldId: string, file: Fil
   const { path, signToken } = await portalSignUpload(token, fieldId, file.name)
   const { error } = await supabase.storage.from('uploads').uploadToSignedUrl(path, signToken, file)
   if (error) throw error
-  return portalRecordUpload(token, fieldId, {
+  await portalRecordUpload(token, fieldId, {
     path,
     filename: file.name,
     size: file.size,
     content_type: file.type,
   })
+  // Normalized shape stored in the answer value — `path` is what the team download uses.
+  return { path, filename: file.name, size: file.size, content_type: file.type }
 }
 
 /** Repeatable sections: ask the server to clone the section's fields for another response. */

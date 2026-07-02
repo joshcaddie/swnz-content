@@ -4,10 +4,17 @@ import { RichTextEditor, RichTextView } from '../components/RichText'
 import { C } from '../theme'
 
 export interface UploadedFile {
-  path: string
+  /** Storage object path. Older answers stored it as storage_path (raw answer_files row). */
+  path?: string
+  storage_path?: string
   filename: string
-  size: number
-  content_type: string
+  size?: number
+  content_type?: string | null
+}
+
+/** Resolve the storage path regardless of which shape the answer stored. */
+export function fileStoragePath(f: UploadedFile): string | null {
+  return f.path ?? f.storage_path ?? null
 }
 
 interface Props {

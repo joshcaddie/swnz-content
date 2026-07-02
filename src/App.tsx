@@ -5,7 +5,6 @@ import { Login } from './routes/Login'
 import { BoardPage } from './routes/BoardPage'
 import { RequestDetailPage } from './routes/RequestDetailPage'
 import { RequestBuilderPage } from './routes/RequestBuilderPage'
-import { CalendarPage } from './routes/CalendarPage'
 import { TeamPage } from './routes/TeamPage'
 import { RemindersPage } from './routes/RemindersPage'
 import { ActivityPage } from './routes/ActivityPage'
@@ -52,7 +51,6 @@ export default function App() {
         <Route path="/requests/:id/edit" element={<RequestBuilderPage />} />
         <Route path="/templates" element={<TemplatesPage />} />
         <Route path="/clients" element={<ClientsPage />} />
-        <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/team" element={<TeamPage />} />
         <Route path="/reminders" element={<RemindersPage />} />
         <Route path="/activity" element={<ActivityPage />} />

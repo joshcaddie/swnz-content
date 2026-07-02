@@ -9,7 +9,7 @@ import { useProfiles } from '../api/profiles'
 import { sendDecision } from '../api/email'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
-import { FieldInput, type UploadedFile } from '../fields/FieldInput'
+import { FieldInput, fileStoragePath, type UploadedFile } from '../fields/FieldInput'
 import { isDisplayField } from '../fields/registry'
 import { Modal } from './ClientsPage'
 import type { AnswerRow, AnswerStatus } from '../lib/database.types'
@@ -71,9 +71,14 @@ export function RequestDetailPage() {
   }
 
   const openFile = async (f: UploadedFile) => {
-    const { data: signed } = await supabase.storage.from('uploads').createSignedUrl(f.path, 3600)
+    const path = fileStoragePath(f)
+    if (!path) {
+      alert('This file has no stored path — ask the client to re-upload it.')
+      return
+    }
+    const { data: signed, error } = await supabase.storage.from('uploads').createSignedUrl(path, 3600, { download: f.filename })
     if (signed?.signedUrl) window.open(signed.signedUrl, '_blank')
-    else alert('Could not open the file.')
+    else alert(`Could not open the file${error ? `: ${error.message}` : '.'}`)
   }
 
   const answersByField = useMemo(() => {

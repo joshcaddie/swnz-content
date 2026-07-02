@@ -54,7 +54,6 @@ export function TopChrome() {
 
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 34 }}>
           {tab('Requests', '/', isRequests)}
-          {tab('Calendar', '/calendar', location.pathname === '/calendar')}
           {tab('Clients', '/clients', location.pathname === '/clients')}
           {tab('Team', '/team', location.pathname === '/team')}
           {tab('Templates', '/templates', location.pathname === '/templates')}
