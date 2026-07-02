@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import type { Json, RequestFieldRow } from '../lib/database.types'
-import { portalLoad, portalSave, portalUploadFile, portalRepeatSection, portalVerifySend, portalVerifyCheck, type PortalData } from '../api/portal'
+import { portalLoad, portalSave, portalUploadFile, portalRepeatSection, portalVerifySend, portalVerifyCheck, portalAiGenerate, type PortalData } from '../api/portal'
 import { FieldInput } from '../fields/FieldInput'
 import { isDisplayField } from '../fields/registry'
 import { C } from '../theme'
@@ -145,6 +145,11 @@ export function ClientPortal() {
                               value={values[f.id] ?? null}
                               onChange={(v) => setVal(f.id, v)}
                               onUpload={(file) => portalUploadFile(token, f.id, file)}
+                              onAI={
+                                f.type === 'single_line' || f.type === 'multiline' || f.type === 'formatted'
+                                  ? (prompt) => portalAiGenerate(token, f.id, prompt)
+                                  : undefined
+                              }
                             />
                           </div>
                         )

@@ -27,6 +27,8 @@ interface Props {
   onUpload?: (file: File) => Promise<UploadedFile>
   /** Team-side: open/download an uploaded file (e.g. via a signed URL). */
   onOpenFile?: (file: UploadedFile) => void
+  /** Portal-side: generate draft content for text fields from a client prompt. */
+  onAI?: (prompt: string) => Promise<string>
 }
 
 const box: React.CSSProperties = {
@@ -37,11 +39,12 @@ function readOnlyBg(ro: boolean) {
   return ro ? '#f7f7fa' : '#fff'
 }
 
-export function FieldInput({ type, label, config, value, onChange, readOnly, onUpload, onOpenFile }: Props) {
+export function FieldInput({ type, label, config, value, onChange, readOnly, onUpload, onOpenFile, onAI }: Props) {
   const ro = !!readOnly
   const style = { ...box, background: readOnlyBg(ro) }
   const options = config.options ?? []
   const ph = config.placeholder
+  const ai = !ro && onAI ? <AiAssist onAI={onAI} onResult={onChange} /> : null
 
   switch (type) {
     case 'heading':
@@ -52,6 +55,14 @@ export function FieldInput({ type, label, config, value, onChange, readOnly, onU
       return <hr style={{ border: 'none', borderTop: '1px solid #e4e3e9', margin: '6px 0' }} />
 
     case 'multiline':
+      return (
+        <div>
+          <textarea disabled={ro} value={asString(value)} onChange={(e) => onChange(e.target.value)}
+            style={{ ...style, minHeight: 120, resize: 'vertical' }} placeholder={ph ?? 'Enter text here...'} />
+          {ai}
+        </div>
+      )
+
     case 'address':
       return (
         <textarea disabled={ro} value={asString(value)} onChange={(e) => onChange(e.target.value)}
@@ -59,7 +70,14 @@ export function FieldInput({ type, label, config, value, onChange, readOnly, onU
       )
 
     case 'formatted':
-      return ro ? <RichTextView html={asString(value)} /> : <RichTextEditor value={asString(value)} onChange={onChange} placeholder="Enter text here..." />
+      return ro ? (
+        <RichTextView html={asString(value)} />
+      ) : (
+        <div>
+          <RichTextEditor value={asString(value)} onChange={onChange} placeholder="Enter text here..." />
+          {ai}
+        </div>
+      )
 
     case 'number':
     case 'currency':
@@ -147,9 +165,77 @@ export function FieldInput({ type, label, config, value, onChange, readOnly, onU
       )
 
     case 'single_line':
+      return (
+        <div>
+          <input disabled={ro} value={asString(value)} onChange={(e) => onChange(e.target.value)} style={style} placeholder={ph ?? 'Enter text here...'} />
+          {ai}
+        </div>
+      )
+
     default:
       return <input disabled={ro} value={asString(value)} onChange={(e) => onChange(e.target.value)} style={style} placeholder={ph ?? 'Enter text here...'} />
   }
+}
+
+/** "Generate content with AI" affordance under portal text fields. */
+function AiAssist({ onAI, onResult }: { onAI: (prompt: string) => Promise<string>; onResult: (text: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [prompt, setPrompt] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  const generate = async () => {
+    if (!prompt.trim() || busy) return
+    setBusy(true); setErr(null)
+    try {
+      const text = await onAI(prompt)
+      onResult(text)
+      setOpen(false)
+    } catch (e) {
+      setErr(`Could not generate content: ${(e as Error).message}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!open) {
+    return (
+      <div
+        onClick={() => setOpen(true)}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginTop: 10, color: '#7a5cd0', fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}
+      >
+        ✦ Generate content with AI
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ marginTop: 10, border: '1px solid #ddd3f3', background: '#faf8ff', borderRadius: 12, padding: '14px 16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+        <div style={{ fontWeight: 800, fontSize: 13.5, color: '#7a5cd0' }}>✦ Generate content with AI</div>
+        <div style={{ flex: 1 }} />
+        <div onClick={() => { if (!busy) { setOpen(false); setErr(null) } }} style={{ color: '#a49bbd', fontWeight: 800, cursor: 'pointer', fontSize: 15, lineHeight: 1 }}>✕</div>
+      </div>
+      <textarea
+        value={prompt}
+        onChange={(e) => setPrompt(e.target.value)}
+        disabled={busy}
+        placeholder="Describe what to write — e.g. “A welcoming intro about our school's values and rural community” — or paste rough notes to polish."
+        style={{ width: '100%', border: '1px solid #e0d9f0', borderRadius: 10, padding: '11px 13px', fontFamily: 'inherit', fontSize: 14.5, color: C.ink, outline: 'none', background: '#fff', minHeight: 74, resize: 'vertical' }}
+      />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 10 }}>
+        <div
+          onClick={generate}
+          style={{ background: busy || !prompt.trim() ? '#b9a9e6' : '#7a5cd0', color: '#fff', fontWeight: 800, fontSize: 12.5, letterSpacing: '0.4px', padding: '10px 18px', borderRadius: 20, cursor: busy || !prompt.trim() ? 'default' : 'pointer' }}
+        >
+          {busy ? 'GENERATING…' : 'GENERATE'}
+        </div>
+        {busy && <div style={{ color: '#8b82a3', fontSize: 13 }}>Writing your content — this takes a few seconds…</div>}
+        {err && <div style={{ color: '#c9491f', fontSize: 13 }}>{err}</div>}
+      </div>
+      <div style={{ color: '#a49bbd', fontSize: 12, marginTop: 8 }}>The result fills the field above — you can edit it before saving.</div>
+    </div>
+  )
 }
 
 const choiceRow: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, fontSize: 16, color: C.ink }

@@ -77,6 +77,16 @@ export async function portalRepeatSection(token: string, sectionId: string) {
   if (data?.error) throw new Error(data.error)
 }
 
+/** Ask the AI to draft content for a text field. Returns plain text (or simple HTML for formatted fields). */
+export async function portalAiGenerate(token: string, fieldId: string, prompt: string): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('ai-generate', {
+    body: { token, field_id: fieldId, prompt },
+  })
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
+  return data.text as string
+}
+
 export async function portalVerifySend(token: string) {
   const { data, error } = await supabase.functions.invoke('client-verify', { body: { token, action: 'send' } })
   if (error) throw error

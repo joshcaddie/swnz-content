@@ -45,5 +45,7 @@ verify_jwt = false
 verify_jwt = false
 [functions.client-verify]
 verify_jwt = false
+[functions.ai-generate]
+verify_jwt = false
 [functions.send-reminders]
 verify_jwt = false
