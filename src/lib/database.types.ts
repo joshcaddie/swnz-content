@@ -74,6 +74,10 @@ export type StructureSection = {
 }
 export type StructurePage = {
   name: string
+  /** 0 = top-level page, 1 = sub-page indented under the nearest top-level page above it. */
+  indent?: number
+  /** Navigation label only — no content is collected for this page. */
+  navOnly?: boolean
   sections: StructureSection[]
 }
 export type Structure = {
@@ -137,6 +141,8 @@ export type RequestPageRow = {
   request_id: string
   name: string
   position: number
+  indent?: number
+  nav_only?: boolean
 }
 export type RequestSectionRow = {
   id: string

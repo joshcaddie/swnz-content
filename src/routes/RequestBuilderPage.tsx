@@ -55,6 +55,8 @@ export function RequestBuilderPage() {
               .filter((f) => f.section_id === s.id)
               .map((f) => ({ type: f.type, label: f.label, tag: f.tag ?? undefined, config: { ...f.config, key: f.config?.key ?? f.id } })),
           })),
+        indent: p.indent ?? 0,
+        navOnly: !!p.nav_only,
       })),
     })
   }, [data])
@@ -100,7 +102,7 @@ export function RequestBuilderPage() {
       const startPos = data.pages.length
       const { data: pageRows, error: pErr } = await supabase
         .from('request_pages')
-        .insert(newPages.map((pg, i) => ({ request_id: id, name: pg.name, position: startPos + i })))
+        .insert(newPages.map((pg, i) => ({ request_id: id, name: pg.name, position: startPos + i, indent: pg.indent ?? 0, nav_only: !!pg.navOnly })))
         .select('id, position')
       if (pErr || !pageRows) { alert(`Could not create pages: ${pErr?.message}`); return }
       const pageIdAt = (i: number) => pageRows.find((r) => r.position === startPos + i)!.id
@@ -132,6 +134,27 @@ export function RequestBuilderPage() {
       local((s) => { s.pages[pi].name = v })
       const rowId = pid(pi)
       write(`page-${rowId}`, () => supabase.from('request_pages').update({ name: v }).eq('id', rowId))
+    },
+    patchPage: async (pi, patch) => {
+      const rowId = pid(pi)
+      if (patch.navOnly) {
+        const secIds = maps.sectionIds[pi] ?? []
+        const pageFields = data.fields.filter((f) => secIds.includes(f.section_id))
+        const answered = data.answers.some((a) => pageFields.some((f) => f.id === a.field_id))
+        const warn = answered
+          ? 'Make this a navigation label only? Its sections, fields AND the client answers on them will be removed.'
+          : pageFields.length > 0
+            ? 'Make this a navigation label only? Its sections and fields will be removed.'
+            : null
+        if (warn && !confirm(warn)) return
+        if (secIds.length) await supabase.from('request_sections').delete().in('id', secIds)
+      }
+      const upd: { nav_only?: boolean; indent?: number } = {}
+      if (patch.navOnly !== undefined) upd.nav_only = patch.navOnly
+      if (patch.indent !== undefined) upd.indent = patch.indent
+      await supabase.from('request_pages').update(upd).eq('id', rowId)
+      setSel(null)
+      await refresh()
     },
     deletePage: async (pi) => {
       if (!confirm('Delete this page and everything in it? Client answers on its fields will be removed.')) return

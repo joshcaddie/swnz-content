@@ -44,7 +44,7 @@ export function collectFieldRefs(s: Structure): FieldRef[] {
 /**
  * Parse a pasted sitemap (one page per line, indentation/dashes for sub-pages)
  * into pages, each pre-loaded with the standard text/images/documents fields.
- * Sub-pages become their own pages named "Parent – Child".
+ * Sub-pages keep their own name and are marked indent=1 under the page above.
  */
 export function sitemapToPages(text: string): StructurePage[] {
   const lines = text.split('\n')
@@ -58,14 +58,11 @@ export function sitemapToPages(text: string): StructurePage[] {
   }
   if (entries.length === 0) return []
   const minIndent = Math.min(...entries.map((e) => e.depth))
-  let lastTop = ''
   const pages: StructurePage[] = []
   for (const e of entries) {
-    let pageName = e.name
-    if (e.depth > minIndent && lastTop) pageName = `${lastTop} – ${e.name}`
-    else lastTop = e.name
     pages.push({
-      name: pageName,
+      name: e.name,
+      indent: e.depth > minIndent ? 1 : 0,
       sections: [
         {
           name: 'Page content',
@@ -85,6 +82,8 @@ export interface BuilderApi {
   addPage: () => void
   addPages: (pages: StructurePage[]) => void | Promise<void>
   renamePage: (pi: number, v: string) => void
+  /** navOnly: true also clears the page's sections (nav labels collect no content). */
+  patchPage: (pi: number, patch: { navOnly?: boolean; indent?: number }) => void
   deletePage: (pi: number) => void
   addSection: () => void
   renameSection: (si: number, v: string) => void
@@ -116,6 +115,15 @@ export function StructureBuilder(p: Props) {
   const fieldRefs = collectFieldRefs(p.structure)
   const parsedPages = sitemapToPages(sitemapText)
 
+  // Hierarchical numbering: top-level pages count 1, 2, 3…; sub-pages 2.1, 2.2…
+  let topN = 0
+  let subN = 0
+  const pageNums = p.structure.pages.map((pg) => {
+    if (!pg.indent) { topN++; subN = 0; return `${topN}` }
+    subN++
+    return `${topN}.${subN}`
+  })
+
   const generate = async () => {
     if (parsedPages.length === 0) return
     setGenerating(true)
@@ -138,24 +146,31 @@ export function StructureBuilder(p: Props) {
           <span style={{ fontWeight: 800, fontSize: 14, letterSpacing: '1.2px', color: '#6f6a7a', flex: 1 }}>PAGES</span>
         </div>
         <div className="swnz-scroll" style={{ flex: 1, overflowY: 'auto', padding: '0 14px' }}>
-          {p.structure.pages.map((pg, pi) => (
-            <div key={pi}>
-              <div onClick={() => p.setActivePage(pi)} className="swnz-hover swnz-hover-grey" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 12px', borderRadius: 8, cursor: 'pointer' }}>
-                <span style={{ fontWeight: 800, fontSize: 17, flex: 1, color: pi === p.activePage ? C.cyan : C.ink }}>{pi + 1}. {pg.name}</span>
-                {p.structure.pages.length > 1 && <span onClick={(e) => { e.stopPropagation(); p.api.deletePage(pi) }} style={{ color: '#c9491f', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>✕</span>}
-              </div>
-              {pi === p.activePage && pg.sections.map((sec, si) => (
-                <div key={si}>
-                  <div style={{ padding: '8px 12px 6px 24px', fontWeight: 700, fontSize: 15, color: '#3b3548' }}>{pi + 1}.{si + 1} {sec.name}</div>
-                  {sec.fields.map((f, fi) => (
-                    <div key={fi} onClick={() => p.setSel({ si, fi })} style={{ padding: '6px 12px 6px 36px', color: p.sel?.si === si && p.sel?.fi === fi ? C.cyan : '#7b7686', fontSize: 14, cursor: 'pointer', fontWeight: p.sel?.si === si && p.sel?.fi === fi ? 700 : 400 }}>
-                      {f.label || 'Untitled field'}
-                    </div>
-                  ))}
+          {p.structure.pages.map((pg, pi) => {
+            const sub = !!pg.indent
+            return (
+              <div key={pi} style={sub ? { marginLeft: 22 } : undefined}>
+                <div onClick={() => p.setActivePage(pi)} className="swnz-hover swnz-hover-grey" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: sub ? '9px 12px' : '11px 12px', borderRadius: 8, cursor: 'pointer' }}>
+                  <span style={{ fontWeight: sub ? 700 : 800, fontSize: sub ? 15.5 : 17, flex: 1, color: pi === p.activePage ? C.cyan : sub ? '#4b4556' : C.ink }}>
+                    {sub && <span style={{ color: '#b6b2c2', marginRight: 6 }}>↳</span>}
+                    {pageNums[pi]}. {pg.name}
+                    {pg.navOnly && <span style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 800, letterSpacing: '0.5px', color: '#8b82a3', background: '#f0eff3', padding: '2px 7px', borderRadius: 6, verticalAlign: 'middle' }}>NAV ONLY</span>}
+                  </span>
+                  {p.structure.pages.length > 1 && <span onClick={(e) => { e.stopPropagation(); p.api.deletePage(pi) }} style={{ color: '#c9491f', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>✕</span>}
                 </div>
-              ))}
-            </div>
-          ))}
+                {pi === p.activePage && pg.sections.map((sec, si) => (
+                  <div key={si}>
+                    <div style={{ padding: '8px 12px 6px 24px', fontWeight: 700, fontSize: 15, color: '#3b3548' }}>{pageNums[pi]}.{si + 1} {sec.name}</div>
+                    {sec.fields.map((f, fi) => (
+                      <div key={fi} onClick={() => p.setSel({ si, fi })} style={{ padding: '6px 12px 6px 36px', color: p.sel?.si === si && p.sel?.fi === fi ? C.cyan : '#7b7686', fontSize: 14, cursor: 'pointer', fontWeight: p.sel?.si === si && p.sel?.fi === fi ? 700 : 400 }}>
+                        {f.label || 'Untitled field'}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )
+          })}
           <div onClick={p.api.addPage} style={{ display: 'inline-flex', alignItems: 'center', gap: 10, border: `1.5px solid ${C.navy2}`, color: C.navy2, fontWeight: 800, fontSize: 14, letterSpacing: '0.5px', padding: '11px 18px', borderRadius: 24, margin: '16px 4px 6px', cursor: 'pointer' }}>ADD A PAGE ▾</div>
           <div onClick={() => setSitemapOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: `1.5px solid ${C.cyan}`, color: C.cyan, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '11px 16px', borderRadius: 24, margin: '0 4px 16px', cursor: 'pointer' }}>🗺 GENERATE FROM SITEMAP</div>
         </div>
@@ -181,7 +196,7 @@ export function StructureBuilder(p: Props) {
             />
             <div style={{ marginTop: 12, minHeight: 22, color: parsedPages.length ? C.navy2 : C.muted2, fontSize: 14, fontWeight: 600 }}>
               {parsedPages.length
-                ? `Will create ${parsedPages.length} page${parsedPages.length === 1 ? '' : 's'}: ${parsedPages.map((pg) => pg.name).join(' · ')}`
+                ? `Will create ${parsedPages.length} page${parsedPages.length === 1 ? '' : 's'}: ${parsedPages.map((pg) => (pg.indent ? `↳ ${pg.name}` : pg.name)).join(' · ')}`
                 : 'Nothing to create yet — paste a sitemap above.'}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 16 }}>
@@ -202,7 +217,30 @@ export function StructureBuilder(p: Props) {
         <div style={{ fontWeight: 800, fontSize: 30, color: C.inkDark }}>{p.name}</div>
         <input value={ap.name} onChange={(e) => p.api.renamePage(p.activePage, e.target.value)} style={{ fontWeight: 800, fontSize: 24, color: C.inkDark, border: 'none', outline: 'none', background: 'transparent', marginTop: 24, width: '100%' }} />
 
-        {ap.sections.map((sec, si) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 28, marginTop: 8 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: C.muted, cursor: 'pointer', fontWeight: 700 }}>
+            Page has content
+            <MiniSwitch on={!ap.navOnly} onToggle={() => p.api.patchPage(p.activePage, { navOnly: !ap.navOnly })} />
+          </label>
+          {p.activePage > 0 && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: C.muted, cursor: 'pointer', fontWeight: 700 }}>
+              Sub-page (indent under the page above)
+              <MiniSwitch on={!!ap.indent} onToggle={() => p.api.patchPage(p.activePage, { indent: ap.indent ? 0 : 1 })} />
+            </label>
+          )}
+        </div>
+
+        {ap.navOnly && (
+          <div style={{ marginTop: 24, background: '#fff', border: '1.5px dashed #d8d6df', borderRadius: 16, padding: '34px 30px', textAlign: 'center', color: C.muted }}>
+            <div style={{ fontWeight: 800, fontSize: 17, color: '#4b4556', marginBottom: 8 }}>Navigation label only</div>
+            <div style={{ fontSize: 14.5, lineHeight: 1.6 }}>
+              This page appears in the sitemap for structure, but no content will be requested from the client.
+              <br />Turn <strong>Page has content</strong> back on to add sections and fields.
+            </div>
+          </div>
+        )}
+
+        {!ap.navOnly && ap.sections.map((sec, si) => (
           <div key={si} style={{ background: '#fff', border: '1.5px solid #bfe0f2', borderRadius: 16, padding: 24, marginTop: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
               <input value={sec.name} onChange={(e) => p.api.renameSection(si, e.target.value)} style={{ fontWeight: 800, fontSize: 20, color: C.inkDark, border: 'none', outline: 'none', background: 'transparent', flex: 1 }} />
@@ -255,9 +293,11 @@ export function StructureBuilder(p: Props) {
           </div>
         ))}
 
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 30 }}>
-          <div onClick={p.api.addSection} style={{ border: `1.5px solid ${C.navy2}`, color: C.navy2, fontWeight: 800, fontSize: 14, letterSpacing: '0.5px', padding: '14px 26px', borderRadius: 26, cursor: 'pointer', background: '#fff' }}>ADD A SECTION ▾</div>
-        </div>
+        {!ap.navOnly && (
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 30 }}>
+            <div onClick={p.api.addSection} style={{ border: `1.5px solid ${C.navy2}`, color: C.navy2, fontWeight: 800, fontSize: 14, letterSpacing: '0.5px', padding: '14px 26px', borderRadius: 26, cursor: 'pointer', background: '#fff' }}>ADD A SECTION ▾</div>
+          </div>
+        )}
       </div>
 
       {/* field options */}

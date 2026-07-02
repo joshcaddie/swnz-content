@@ -84,6 +84,17 @@ export function WizardPage() {
       setActivePage(0)
     },
     renamePage: (pi, v) => mutate((s) => { s.pages[pi].name = v }),
+    patchPage: (pi, patch) => {
+      if (patch.navOnly) {
+        const hasFields = structure.pages[pi].sections.some((sec) => sec.fields.length > 0)
+        if (hasFields && !confirm('Make this a navigation label only? Its sections and fields will be removed.')) return
+      }
+      mutate((s) => {
+        Object.assign(s.pages[pi], patch)
+        if (patch.navOnly) s.pages[pi].sections = []
+      })
+      setSel(null)
+    },
     deletePage: (pi) => { mutate((s) => { s.pages.splice(pi, 1) }); setActivePage(0); setSel(null) },
     addSection: () => mutate((s) => { s.pages[activePage].sections.push({ name: 'Untitled section', fields: [] }) }),
     renameSection: (si, v) => mutate((s) => { s.pages[activePage].sections[si].name = v }),
@@ -101,7 +112,7 @@ export function WizardPage() {
       if (needsOptions(type) && !(f.config?.options?.length)) f.config = { ...(f.config ?? {}), options: ['Option 1', 'Option 2'] }
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [activePage])
+  }), [activePage, structure])
 
   const addField = (type: FieldType, label: string) => {
     mutate((s) => {
