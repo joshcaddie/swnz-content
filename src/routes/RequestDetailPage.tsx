@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
 import { useRequest, useUpdateRequest } from '../api/requests'
 import { useReview } from '../api/answers'
 import { useComments, useAddComment } from '../api/comments'
@@ -11,7 +10,6 @@ import { sendDecision } from '../api/email'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { portalUploadFile } from '../api/portal'
-import { qk } from '../api/keys'
 import { FieldInput, fileStoragePath, type UploadedFile } from '../fields/FieldInput'
 import { isDisplayField } from '../fields/registry'
 import { Modal } from './ClientsPage'
@@ -33,7 +31,6 @@ const statusTick = (status: AnswerStatus | undefined) => {
 export function RequestDetailPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
-  const qc = useQueryClient()
   const { profile } = useAuth()
   const { data, isLoading } = useRequest(id)
   const review = useReview(id)
@@ -51,36 +48,60 @@ export function RequestDetailPage() {
 
   // Editable answer values with per-field instant autosave (team can add content too).
   const [values, setValues] = useState<Record<string, Json>>({})
+  const [answersLive, setAnswersLive] = useState<Record<string, AnswerRow>>({})
   const [saveState, setSaveState] = useState<Record<string, 'saving' | 'saved'>>({})
   const editingRef = useRef<string | null>(null)
+  const dirtyRef = useRef<Set<string>>(new Set())   // fields with an unsaved / in-flight local edit
+  const pendingRef = useRef(new Map<string, Json>()) // latest value scheduled per field
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
 
-  // Seed / re-seed local values from the server, but never clobber the field
-  // currently being edited on this screen.
-  useEffect(() => {
-    if (!data) return
+  // Merge server answer rows into local state WITHOUT ever clobbering a field this
+  // user is editing or has an unsaved edit in. This is the only path that writes
+  // other people's changes into the view, so a save on one machine can never wipe
+  // an in-progress edit on another.
+  const mergeAnswers = (rows: AnswerRow[]) => {
     setValues((prev) => {
-      const next: Record<string, Json> = Object.fromEntries(data.answers.map((a) => [a.field_id, a.value]))
-      const editing = editingRef.current
-      if (editing && editing in prev) next[editing] = prev[editing]
+      const next = { ...prev }
+      for (const a of rows) {
+        if (dirtyRef.current.has(a.field_id)) continue
+        if (editingRef.current === a.field_id) continue
+        next[a.field_id] = a.value
+      }
       return next
     })
+    setAnswersLive((prev) => {
+      const next = { ...prev }
+      for (const a of rows) next[a.field_id] = a
+      return next
+    })
+  }
+
+  // Seed from the loaded request, and re-merge on any refetch (dirty fields preserved).
+  useEffect(() => {
+    if (data) mergeAnswers(data.answers)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data])
 
-  // Live multi-user editing: apply other people's saved values as they happen.
+  // Reliable live sync: poll the answers table every 3.5s and merge. Works even
+  // where Realtime isn't delivering; merge() protects local edits.
   useEffect(() => {
+    let alive = true
+    const tick = async () => {
+      const { data: rows } = await supabase.from('answers').select('*').eq('request_id', id)
+      if (alive && rows) mergeAnswers(rows as AnswerRow[])
+    }
+    const iv = setInterval(tick, 3500)
+    // Plus Realtime for instant updates when it is available.
     const ch = supabase
       .channel(`answers-${id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'answers', filter: `request_id=eq.${id}` }, (payload) => {
-        const row = payload.new as { field_id?: string; value?: Json } | null
-        if (!row?.field_id) return
-        if (editingRef.current === row.field_id) return // don't overwrite what I'm typing
-        setValues((v) => ({ ...v, [row.field_id!]: row.value ?? null }))
-        qc.invalidateQueries({ queryKey: qk.request(id) })
+        const row = payload.new as AnswerRow | null
+        if (row?.field_id) mergeAnswers([row])
       })
       .subscribe()
-    return () => { supabase.removeChannel(ch) }
-  }, [id, qc])
+    return () => { alive = false; clearInterval(iv); supabase.removeChannel(ch) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
 
   // Clicking a field in the nav scrolls the middle to it (across page switches).
   useEffect(() => {
@@ -90,16 +111,25 @@ export function RequestDetailPage() {
   }, [selected])
 
   const scheduleSave = (fieldId: string, value: Json) => {
+    dirtyRef.current.add(fieldId)
+    pendingRef.current.set(fieldId, value)
     setValues((v) => ({ ...v, [fieldId]: value }))
     setSaveState((s) => ({ ...s, [fieldId]: 'saving' }))
     const prev = timers.current.get(fieldId)
     if (prev) clearTimeout(prev)
     timers.current.set(fieldId, setTimeout(async () => {
+      const v = pendingRef.current.get(fieldId)
       try {
-        await review.saveValue(fieldId, value)
+        await review.saveValue(fieldId, v as Json)
         setSaveState((s) => ({ ...s, [fieldId]: 'saved' }))
       } catch {
         setSaveState((s) => { const n = { ...s }; delete n[fieldId]; return n })
+      } finally {
+        // Only clear "dirty" if no newer keystroke has been scheduled since.
+        if (pendingRef.current.get(fieldId) === v) {
+          dirtyRef.current.delete(fieldId)
+          pendingRef.current.delete(fieldId)
+        }
       }
     }, 500))
   }
@@ -154,11 +184,13 @@ export function RequestDetailPage() {
     for (const a of data?.answers ?? []) m.set(a.field_id, a)
     return m
   }, [data])
+  // Prefer the live-merged answer (value + status kept current by poll/realtime).
+  const answerFor = (fid: string): AnswerRow | undefined => answersLive[fid] ?? answersByField.get(fid)
 
   const inputFields = useMemo(() => (data ? data.fields.filter((f) => !isDisplayField(f.type)) : []), [data])
   const total = inputFields.length
-  const approved = inputFields.filter((f) => answersByField.get(f.id)?.status === 'approved').length
-  const submitted = inputFields.filter((f) => answersByField.get(f.id)?.status === 'submitted').length
+  const approved = inputFields.filter((f) => answerFor(f.id)?.status === 'approved').length
+  const submitted = inputFields.filter((f) => answerFor(f.id)?.status === 'submitted').length
 
   // default selection = first input field
   const activeFieldId = selected ?? inputFields[0]?.id ?? null
@@ -222,7 +254,7 @@ export function RequestDetailPage() {
           {data.pages.map((pg, pi) => {
             const secs = data.sections.filter((s) => s.page_id === pg.id)
             const pageFields = data.fields.filter((f) => secs.some((s) => s.id === f.section_id) && !isDisplayField(f.type))
-            const pageDone = pageFields.filter((f) => answersByField.get(f.id)?.status === 'approved').length
+            const pageDone = pageFields.filter((f) => answerFor(f.id)?.status === "approved").length
             return (
               <div key={pg.id}>
                 <div style={{ background: pi === 0 ? C.navy2 : 'transparent', borderRadius: 30, display: 'flex', alignItems: 'center', padding: '13px 20px', color: pi === 0 ? '#fff' : C.ink, gap: 12, marginTop: pi === 0 ? 0 : 8, borderTop: pi === 0 ? 'none' : '1px solid #f0eff3' }}>
@@ -239,7 +271,7 @@ export function RequestDetailPage() {
                       <div style={{ paddingLeft: 14 }}>
                         {fields.map((f) => {
                           if (isDisplayField(f.type)) return null
-                          const st = answersByField.get(f.id)?.status
+                          const st = answerFor(f.id)?.status
                           const t = statusTick(st)
                           const active = f.id === activeFieldId
                           return (
@@ -290,7 +322,7 @@ export function RequestDetailPage() {
                   <div key={sec.id} style={{ marginBottom: 8 }}>
                     <div style={{ fontWeight: 800, fontSize: 17, color: C.navy2, margin: '18px 0 10px' }}>{sec.name}</div>
                     {secFields.map((f) => {
-                      const ans = answersByField.get(f.id)
+                      const ans = answerFor(f.id)
                       const t = statusTick(ans?.status)
                       const sel = selected === f.id
                       const ss = saveState[f.id]
