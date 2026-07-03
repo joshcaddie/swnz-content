@@ -627,6 +627,17 @@ export function Switch({ on, onToggle }: { on: boolean; onToggle: () => void }) 
 }
 
 function OptionsEditor({ options, onChange }: { options: string[]; onChange: (o: string[]) => void }) {
+  const [pasteOpen, setPasteOpen] = useState(false)
+  const [pasteText, setPasteText] = useState('')
+  const parsed = pasteText.split('\n').map((l) => l.trim()).filter(Boolean)
+  const addPasted = () => {
+    if (parsed.length === 0) return
+    // Drop the auto "Option 1/2…" placeholders when the user brings a real list.
+    const kept = options.filter((o) => o.trim() && !/^Option \d+$/.test(o.trim()))
+    onChange([...kept, ...parsed])
+    setPasteText('')
+    setPasteOpen(false)
+  }
   return (
     <div style={{ marginTop: 12 }} onClick={(e) => e.stopPropagation()}>
       <div style={{ fontSize: 13, color: C.muted2, marginBottom: 6 }}>Options</div>
@@ -637,7 +648,26 @@ function OptionsEditor({ options, onChange }: { options: string[]; onChange: (o:
           <span onClick={() => onChange(options.filter((_, j) => j !== i))} style={{ color: '#c9491f', cursor: 'pointer', fontWeight: 800 }}>✕</span>
         </div>
       ))}
-      <div onClick={() => onChange([...options, `Option ${options.length + 1}`])} style={{ color: C.cyan, fontWeight: 700, fontSize: 14, cursor: 'pointer', marginTop: 2 }}>＋ Add option</div>
+      <div style={{ display: 'flex', gap: 18, marginTop: 2 }}>
+        <div onClick={() => onChange([...options, `Option ${options.length + 1}`])} style={{ color: C.cyan, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>＋ Add option</div>
+        <div onClick={() => setPasteOpen((v) => !v)} style={{ color: C.cyan, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>📋 Paste a list</div>
+      </div>
+      {pasteOpen && (
+        <div style={{ marginTop: 10, background: '#f8f8fb', border: '1px solid #ececf0', borderRadius: 10, padding: 12 }}>
+          <div style={{ fontSize: 13, color: C.muted2, marginBottom: 6 }}>Paste one option per line.</div>
+          <textarea
+            autoFocus
+            value={pasteText}
+            onChange={(e) => setPasteText(e.target.value)}
+            placeholder={'Litigation\nProperty\nFamily\nEmployment'}
+            style={{ width: '100%', minHeight: 120, border: '1px solid #e1e0e7', borderRadius: 8, padding: '10px 12px', fontFamily: 'inherit', fontSize: 14, color: C.ink, outline: 'none', resize: 'vertical', lineHeight: 1.5 }}
+          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
+            <div onClick={addPasted} style={{ background: parsed.length ? C.navy2 : '#c9ccd4', color: '#fff', fontWeight: 800, fontSize: 12.5, letterSpacing: '0.4px', padding: '9px 16px', borderRadius: 20, cursor: parsed.length ? 'pointer' : 'default' }}>ADD {parsed.length || ''} OPTION{parsed.length === 1 ? '' : 'S'}</div>
+            <div onClick={() => { setPasteOpen(false); setPasteText('') }} style={{ color: '#5b5667', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Cancel</div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
