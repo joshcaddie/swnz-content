@@ -89,3 +89,10 @@ textarea::placeholder {
 .swnz-hover-lift:hover {
   transform: translateY(-4px);
 }
+
+/* Client portal page nav collapses on narrow screens */
+@media (max-width: 920px) {
+  .portal-nav {
+    display: none;
+  }
+}

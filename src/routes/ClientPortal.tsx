@@ -24,6 +24,7 @@ export function ClientPortal() {
   const [verified, setVerified] = useState(false)
   const [saving, setSaving] = useState<'idle' | 'saving' | 'submitting'>('idle')
   const [savedNote, setSavedNote] = useState<string | null>(null)
+  const [activePageId, setActivePageId] = useState<string | null>(null)
 
   useEffect(() => {
     portalLoad(token)
@@ -116,6 +117,33 @@ export function ClientPortal() {
   }
 
   const brand = brandOf(data.request.brand)
+  const renderedPages = data.pages.filter((pg) => data.sections.some((s) => s.page_id === pg.id))
+
+  // Per-page answered/total for the nav.
+  const sectionPage = new Map(data.sections.map((s) => [s.id, s.page_id]))
+  const pageStats = new Map<string, { answered: number; total: number }>()
+  for (const f of inputFields) {
+    const pid = sectionPage.get(f.section_id)
+    if (!pid) continue
+    const st = pageStats.get(pid) ?? { answered: 0, total: 0 }
+    st.total++
+    if (hasValue(values[f.id])) st.answered++
+    pageStats.set(pid, st)
+  }
+
+  const jumpTo = (pageId: string) =>
+    document.getElementById(`portal-page-${pageId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
+  const onScrollSpy = (e: React.UIEvent<HTMLDivElement>) => {
+    const top = e.currentTarget.getBoundingClientRect().top
+    let current: string | null = null
+    for (const pg of renderedPages) {
+      const el = document.getElementById(`portal-page-${pg.id}`)
+      if (el && el.getBoundingClientRect().top - top <= 120) current = pg.id
+    }
+    setActivePageId(current ?? renderedPages[0]?.id ?? null)
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', flexDirection: 'column' }}>
       <div style={{ height: 6, background: brand.bar }} />
@@ -125,8 +153,39 @@ export function ClientPortal() {
         {!brand.logoImg && brand.tagline && <div style={{ color: '#b9b3c2', fontWeight: 600, fontSize: 13 }}>{brand.tagline}</div>}
       </div>
 
-      <div className="swnz-scroll" style={{ flex: 1, overflowY: 'auto', padding: '32px 20px 140px' }}>
-        <div style={{ maxWidth: 820, margin: '0 auto' }}>
+      <div className="swnz-scroll" style={{ flex: 1, overflowY: 'auto', padding: '32px 20px 140px' }} onScroll={onScrollSpy}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', gap: 30, alignItems: 'flex-start' }}>
+          {renderedPages.length > 1 && (
+            <nav className="portal-nav" style={{ width: 235, flex: 'none', position: 'sticky', top: 0 }}>
+              <div style={{ fontWeight: 800, fontSize: 12, letterSpacing: '1.2px', color: C.muted2, margin: '6px 0 10px 12px' }}>PAGES</div>
+              <div style={{ background: '#fff', border: '1px solid #e9e8ee', borderRadius: 14, padding: 8, boxShadow: '0 2px 10px rgba(40,30,60,.05)', maxHeight: 'calc(100vh - 260px)', overflowY: 'auto' }} className="swnz-scroll">
+                {renderedPages.map((pg) => {
+                  const st = pageStats.get(pg.id)
+                  const done = !!st && st.total > 0 && st.answered >= st.total
+                  const active = pg.id === activePageId
+                  return (
+                    <div
+                      key={pg.id}
+                      onClick={() => jumpTo(pg.id)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', paddingLeft: pg.indent ? 26 : 12, borderRadius: 9, cursor: 'pointer', background: active ? '#eef6fb' : 'transparent' }}
+                    >
+                      <span style={{ flex: 1, fontWeight: active ? 800 : 600, fontSize: 14, color: active ? brand.accent : C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {pg.indent ? <span style={{ color: '#c3bfce', marginRight: 5 }}>↳</span> : null}
+                        {pg.name}
+                      </span>
+                      {st && st.total > 0 && (
+                        <span style={{ flex: 'none', fontSize: 11.5, fontWeight: 700, color: done ? '#1d9e6f' : C.muted2 }}>
+                          {done ? '✓' : `${st.answered}/${st.total}`}
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </nav>
+          )}
+
+          <div style={{ flex: 1, minWidth: 0, maxWidth: 820, margin: renderedPages.length > 1 ? undefined : '0 auto' }}>
           <div style={{ fontWeight: 800, fontSize: 30, color: C.inkDark }}>{data.request.name}</div>
           <div style={{ color: C.muted, fontSize: 16, margin: '8px 0 4px' }}>
             {data.client?.name ? `For ${data.client.name}. ` : ''}Please fill in the fields below and submit for review.
@@ -136,7 +195,7 @@ export function ClientPortal() {
             const secs = data.sections.filter((s) => s.page_id === pg.id)
             if (secs.length === 0) return null
             return (
-              <div key={pg.id} style={{ marginTop: 28 }}>
+              <div key={pg.id} id={`portal-page-${pg.id}`} style={{ marginTop: 28, scrollMarginTop: 12 }}>
                 <div style={{ fontWeight: 800, fontSize: 20, color: C.navy2, marginBottom: 12 }}>{pg.name}</div>
                 {secs.map((sec) => {
                   const fields = data.fields.filter((f) => f.section_id === sec.id)
@@ -188,6 +247,7 @@ export function ClientPortal() {
               </div>
             )
           })}
+          </div>
         </div>
       </div>
 
