@@ -344,7 +344,10 @@ export function ClientPortal() {
           </div>
           <div style={{ color: C.muted2, fontSize: 12, marginTop: 3 }}>Saves automatically — you can close this page and come back later</div>
         </div>
-        <div onClick={() => saving === 'idle' && submitForReview()} style={{ background: brand.buttonBg, color: '#fff', fontWeight: 800, fontSize: 15, letterSpacing: '0.4px', padding: '15px 26px', borderRadius: 28, cursor: 'pointer', opacity: saving === 'submitting' ? 0.7 : 1 }}>{saving === 'submitting' ? 'SUBMITTING…' : 'SUBMIT FOR REVIEW'}</div>
+        <div style={{ textAlign: 'center' }}>
+          <div onClick={() => saving === 'idle' && submitForReview()} style={{ background: brand.buttonBg, color: '#fff', fontWeight: 800, fontSize: 15, letterSpacing: '0.4px', padding: '15px 26px', borderRadius: 28, cursor: 'pointer', opacity: saving === 'submitting' ? 0.7 : 1 }}>{saving === 'submitting' ? 'SUBMITTING…' : 'SUBMIT FOR REVIEW'}</div>
+          <div style={{ color: C.muted2, fontSize: 12, marginTop: 4 }}>When the entire form is complete</div>
+        </div>
       </div>
     </div>
   )
