@@ -117,7 +117,9 @@ export function ClientPortal() {
   }
 
   const brand = brandOf(data.request.brand)
-  const renderedPages = data.pages.filter((pg) => data.sections.some((s) => s.page_id === pg.id))
+  // Nav-only (label) pages have no sections but still appear in the nav as group
+  // headers so their sub-pages aren't orphaned.
+  const renderedPages = data.pages.filter((pg) => pg.nav_only || data.sections.some((s) => s.page_id === pg.id))
 
   // Per-page answered/total for the nav.
   const sectionPage = new Map(data.sections.map((s) => [s.id, s.page_id]))
@@ -163,13 +165,15 @@ export function ClientPortal() {
                   const st = pageStats.get(pg.id)
                   const done = !!st && st.total > 0 && st.answered >= st.total
                   const active = pg.id === activePageId
+                  // A top-level page with no fields of its own acts as a group header.
+                  const isHeader = pg.nav_only && (!st || st.total === 0)
                   return (
                     <div
                       key={pg.id}
                       onClick={() => jumpTo(pg.id)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', paddingLeft: pg.indent ? 26 : 12, borderRadius: 9, cursor: 'pointer', background: active ? '#eef6fb' : 'transparent' }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: isHeader ? '10px 12px 5px' : '9px 12px', paddingLeft: pg.indent ? 26 : 12, marginTop: isHeader ? 4 : 0, borderRadius: 9, cursor: 'pointer', background: active && !isHeader ? '#eef6fb' : 'transparent' }}
                     >
-                      <span style={{ flex: 1, fontWeight: active ? 800 : 600, fontSize: 14, color: active ? brand.accent : C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ flex: 1, fontWeight: isHeader ? 800 : active ? 800 : 600, fontSize: isHeader ? 12 : 14, letterSpacing: isHeader ? '0.6px' : undefined, textTransform: isHeader ? 'uppercase' : undefined, color: isHeader ? C.muted2 : active ? brand.accent : C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {pg.indent ? <span style={{ color: '#c3bfce', marginRight: 5 }}>↳</span> : null}
                         {pg.name}
                       </span>
@@ -193,7 +197,15 @@ export function ClientPortal() {
 
           {data.pages.map((pg) => {
             const secs = data.sections.filter((s) => s.page_id === pg.id)
-            if (secs.length === 0) return null
+            if (secs.length === 0 && !pg.nav_only) return null
+            // Nav-only pages: a heading only, so they group their sub-pages in the body too.
+            if (secs.length === 0) {
+              return (
+                <div key={pg.id} id={`portal-page-${pg.id}`} style={{ marginTop: 34, scrollMarginTop: 12 }}>
+                  <div style={{ fontWeight: 800, fontSize: 24, color: C.inkDark, borderBottom: '2px solid #e6e5ec', paddingBottom: 8 }}>{pg.name}</div>
+                </div>
+              )
+            }
             return (
               <div key={pg.id} id={`portal-page-${pg.id}`} style={{ marginTop: 28, scrollMarginTop: 12 }}>
                 <div style={{ fontWeight: 800, fontSize: 20, color: C.navy2, marginBottom: 12 }}>{pg.name}</div>
