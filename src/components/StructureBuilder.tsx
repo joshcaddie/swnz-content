@@ -53,20 +53,6 @@ export const DEFAULT_SITEMAP_FIELDS: SitemapFieldSpec[] = [
   { type: 'file', label: 'Documents for this page' },
 ]
 
-function specToField(spec: SitemapFieldSpec): StructureField {
-  const multi = spec.type === 'image' || spec.type === 'file'
-  return {
-    type: spec.type,
-    label: spec.label,
-    tag: multi ? 'Multi Answer' : undefined,
-    config: {
-      key: newFieldKey(),
-      ...(multi ? { multi: true, maxFiles: 10 } : {}),
-      ...(needsOptions(spec.type) ? { options: ['Option 1', 'Option 2'] } : {}),
-    },
-  }
-}
-
 /**
  * Parse a pasted sitemap (one page per line, indentation/dashes for sub-pages)
  * into pages, each pre-loaded with the given fields (default: text/images/documents).
@@ -111,6 +97,25 @@ export interface BuilderApi {
   patchField: (si: number, fi: number, patch: Partial<StructureField>) => void
   patchConfig: (si: number, fi: number, patch: Partial<FieldConfig>) => void
   changeType: (si: number, fi: number, type: FieldType) => void
+  /** Add the given fields (cloned with fresh keys) to the last section of each selected page. */
+  bulkAddFields: (pageIndices: number[], fields: StructureField[]) => void | Promise<void>
+  /** Rename every targeted field to the same label. */
+  bulkRenameFields: (targets: { pi: number; si: number; fi: number }[], name: string) => void | Promise<void>
+}
+
+/** Build a real field from a {type,label} spec — shared by the sitemap + bulk tools. */
+export function specToField(spec: SitemapFieldSpec): StructureField {
+  const multi = spec.type === 'image' || spec.type === 'file'
+  return {
+    type: spec.type,
+    label: spec.label,
+    tag: multi ? 'Multi Answer' : undefined,
+    config: {
+      key: newFieldKey(),
+      ...(multi ? { multi: true, maxFiles: 10 } : {}),
+      ...(needsOptions(spec.type) ? { options: ['Option 1', 'Option 2'] } : {}),
+    },
+  }
 }
 
 interface Props {
@@ -133,6 +138,14 @@ export function StructureBuilder(p: Props) {
   const [customStep, setCustomStep] = useState<1 | 2>(1)
   const [customText, setCustomText] = useState('')
   const [customFields, setCustomFields] = useState<SitemapFieldSpec[]>(DEFAULT_SITEMAP_FIELDS.map((f) => ({ ...f })))
+  // Bulk add fields → pages
+  const [bulkAddOpen, setBulkAddOpen] = useState(false)
+  const [bulkAddSpecs, setBulkAddSpecs] = useState<SitemapFieldSpec[]>([{ type: 'single_line', label: '' }])
+  const [bulkAddPages, setBulkAddPages] = useState<Set<number>>(new Set())
+  // Bulk rename fields
+  const [bulkEditOpen, setBulkEditOpen] = useState(false)
+  const [bulkEditName, setBulkEditName] = useState('')
+  const [bulkEditSel, setBulkEditSel] = useState<Set<string>>(new Set())
   const ap = p.structure.pages[p.activePage] ?? p.structure.pages[0]
   const selField = ap && p.sel ? ap.sections[p.sel.si]?.fields[p.sel.fi] : null
   const fieldRefs = collectFieldRefs(p.structure)
@@ -175,6 +188,38 @@ export function StructureBuilder(p: Props) {
     }
   }
 
+  const bulkAddReady = bulkAddPages.size > 0 && bulkAddSpecs.some((f) => f.label.trim())
+  const runBulkAdd = async () => {
+    if (!bulkAddReady) return
+    setGenerating(true)
+    try {
+      const fields = bulkAddSpecs.filter((f) => f.label.trim()).map(specToField)
+      await p.api.bulkAddFields([...bulkAddPages].sort((a, b) => a - b), fields)
+      setBulkAddOpen(false)
+      setBulkAddSpecs([{ type: 'single_line', label: '' }])
+      setBulkAddPages(new Set())
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const runBulkEdit = async () => {
+    if (!bulkEditName.trim() || bulkEditSel.size === 0) return
+    setGenerating(true)
+    try {
+      const targets = [...bulkEditSel].map((k) => {
+        const [pi, si, fi] = k.split('-').map(Number)
+        return { pi, si, fi }
+      })
+      await p.api.bulkRenameFields(targets, bulkEditName.trim())
+      setBulkEditOpen(false)
+      setBulkEditName('')
+      setBulkEditSel(new Set())
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   if (!ap) return <div style={{ padding: 40, color: C.muted }}>No pages yet — add one.</div>
 
   return (
@@ -212,9 +257,103 @@ export function StructureBuilder(p: Props) {
           })}
           <div onClick={p.api.addPage} style={{ display: 'inline-flex', alignItems: 'center', gap: 10, border: `1.5px solid ${C.navy2}`, color: C.navy2, fontWeight: 800, fontSize: 14, letterSpacing: '0.5px', padding: '11px 18px', borderRadius: 24, margin: '16px 4px 6px', cursor: 'pointer' }}>ADD A PAGE ▾</div>
           <div onClick={() => setSitemapOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: `1.5px solid ${C.cyan}`, color: C.cyan, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '11px 16px', borderRadius: 24, margin: '0 4px 8px', cursor: 'pointer' }}>🗺 GENERATE FROM SITEMAP</div>
-          <div onClick={() => { setCustomOpen(true); setCustomStep(1) }} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: `1.5px solid ${C.cyan}`, color: C.cyan, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '11px 16px', borderRadius: 24, margin: '0 4px 16px', cursor: 'pointer' }}>🛠 BUILD CUSTOM WITH SITEMAP</div>
+          <div onClick={() => { setCustomOpen(true); setCustomStep(1) }} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: `1.5px solid ${C.cyan}`, color: C.cyan, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '11px 16px', borderRadius: 24, margin: '0 4px 8px', cursor: 'pointer' }}>🛠 BUILD CUSTOM WITH SITEMAP</div>
+          <div onClick={() => setBulkAddOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: `1.5px solid ${C.navy2}`, color: C.navy2, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '11px 16px', borderRadius: 24, margin: '0 4px 8px', cursor: 'pointer' }}>➕ BULK ADD FIELDS</div>
+          <div onClick={() => { setBulkEditOpen(true); setBulkEditSel(new Set()); setBulkEditName('') }} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: `1.5px solid ${C.navy2}`, color: C.navy2, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '11px 16px', borderRadius: 24, margin: '0 4px 16px', cursor: 'pointer' }}>✎ BULK EDIT (RENAME)</div>
         </div>
       </div>
+
+      {bulkAddOpen && (
+        <div onClick={() => setBulkAddOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(16,28,52,.5)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 70, padding: '50px 20px', overflow: 'auto' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 18, width: 720, maxWidth: '100%', padding: '28px 30px 30px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ fontWeight: 800, fontSize: 22, color: C.inkDark, flex: 1 }}>Bulk add fields to pages</div>
+              <span onClick={() => setBulkAddOpen(false)} style={{ color: C.muted2, fontSize: 22, cursor: 'pointer' }}>✕</span>
+            </div>
+
+            <div style={{ fontWeight: 800, fontSize: 13, letterSpacing: '0.6px', color: C.muted2, margin: '12px 0 10px' }}>1. FIELDS TO ADD</div>
+            {bulkAddSpecs.map((f, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                <span style={{ color: C.navy2, fontSize: 17, width: 22, textAlign: 'center' }}>{iconFor(f.type)}</span>
+                <select value={f.type} onChange={(e) => setBulkAddSpecs((arr) => arr.map((x, j) => (j === i ? { ...x, type: e.target.value as FieldType } : x)))} style={{ width: 190, border: '1px solid #e1e0e7', borderRadius: 10, padding: '11px 10px', fontFamily: 'inherit', fontSize: 14, color: C.ink, outline: 'none', background: '#fff', flex: 'none' }}>
+                  {FIELD_TYPES.filter((ft) => !isDisplayField(ft.type)).map((ft) => <option key={ft.type} value={ft.type}>{ft.label}</option>)}
+                </select>
+                <input value={f.label} onChange={(e) => setBulkAddSpecs((arr) => arr.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} placeholder="Field name shown to the client…" style={{ flex: 1, border: '1px solid #e1e0e7', borderRadius: 10, padding: '11px 13px', fontFamily: 'inherit', fontSize: 14.5, color: C.ink, outline: 'none' }} />
+                {bulkAddSpecs.length > 1 && <span onClick={() => setBulkAddSpecs((arr) => arr.filter((_, j) => j !== i))} style={{ color: '#c9491f', fontWeight: 800, fontSize: 16, cursor: 'pointer' }}>✕</span>}
+              </div>
+            ))}
+            <div onClick={() => setBulkAddSpecs((arr) => [...arr, { type: 'single_line', label: '' }])} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: C.cyan, fontWeight: 700, fontSize: 14, cursor: 'pointer', marginTop: 2 }}>＋ Add another field</div>
+
+            <div style={{ display: 'flex', alignItems: 'center', margin: '20px 0 10px' }}>
+              <div style={{ fontWeight: 800, fontSize: 13, letterSpacing: '0.6px', color: C.muted2, flex: 1 }}>2. ADD TO THESE PAGES ({bulkAddPages.size} selected)</div>
+              <div onClick={() => setBulkAddPages(bulkAddPages.size === p.structure.pages.length ? new Set() : new Set(p.structure.pages.map((_, i) => i)))} style={{ color: C.cyan, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                {bulkAddPages.size === p.structure.pages.length ? 'Clear all' : 'Select all'}
+              </div>
+            </div>
+            <div className="swnz-scroll" style={{ maxHeight: 240, overflowY: 'auto', border: '1px solid #ececf0', borderRadius: 10, padding: 6 }}>
+              {p.structure.pages.map((pg, pi) => (
+                <label key={pi} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', paddingLeft: pg.indent ? 30 : 10, borderRadius: 8, cursor: 'pointer', fontSize: 14.5, color: C.ink }}>
+                  <input type="checkbox" checked={bulkAddPages.has(pi)} onChange={(e) => setBulkAddPages((s) => { const n = new Set(s); e.target.checked ? n.add(pi) : n.delete(pi); return n })} />
+                  <span style={{ fontWeight: pg.indent ? 500 : 700 }}>{pg.indent ? '↳ ' : ''}{pageNums[pi]}. {pg.name}</span>
+                  {pg.navOnly && <span style={{ fontSize: 10.5, fontWeight: 800, color: '#8b82a3', background: '#f0eff3', padding: '2px 7px', borderRadius: 6 }}>NAV ONLY</span>}
+                </label>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 20 }}>
+              <div onClick={() => setBulkAddOpen(false)} style={{ color: '#5b5667', fontWeight: 700, fontSize: 14, padding: '12px 18px', cursor: 'pointer' }}>Cancel</div>
+              <div onClick={runBulkAdd} style={{ background: bulkAddReady ? C.navy2 : '#c9ccd4', color: '#fff', fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '12px 24px', borderRadius: 24, cursor: bulkAddReady ? 'pointer' : 'default' }}>
+                {generating ? 'ADDING…' : `ADD TO ${bulkAddPages.size} PAGE${bulkAddPages.size === 1 ? '' : 'S'}`}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {bulkEditOpen && (
+        <div onClick={() => setBulkEditOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(16,28,52,.5)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 70, padding: '50px 20px', overflow: 'auto' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 18, width: 640, maxWidth: '100%', padding: '28px 30px 30px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ fontWeight: 800, fontSize: 22, color: C.inkDark, flex: 1 }}>Bulk rename fields</div>
+              <span onClick={() => setBulkEditOpen(false)} style={{ color: C.muted2, fontSize: 22, cursor: 'pointer' }}>✕</span>
+            </div>
+            <div style={{ color: C.muted, fontSize: 14, marginBottom: 14, lineHeight: 1.5 }}>
+              Tick the fields you want to rename, then give them all the same new name.
+            </div>
+            <input value={bulkEditName} onChange={(e) => setBulkEditName(e.target.value)} placeholder="New name for the selected fields…" style={{ width: '100%', border: '1px solid #e1e0e7', borderRadius: 10, padding: '13px 15px', fontFamily: 'inherit', fontSize: 16, color: C.ink, outline: 'none', marginBottom: 14 }} />
+
+            <div style={{ fontWeight: 800, fontSize: 13, letterSpacing: '0.6px', color: C.muted2, marginBottom: 8 }}>SELECT FIELDS ({bulkEditSel.size})</div>
+            <div className="swnz-scroll" style={{ maxHeight: 320, overflowY: 'auto', border: '1px solid #ececf0', borderRadius: 10, padding: 6 }}>
+              {p.structure.pages.map((pg, pi) => {
+                const rows = pg.sections.flatMap((sec, si) => sec.fields.map((f, fi) => ({ f, si, fi }))).filter((r) => !isDisplayField(r.f.type))
+                if (rows.length === 0) return null
+                return (
+                  <div key={pi} style={{ marginBottom: 6 }}>
+                    <div style={{ fontWeight: 800, fontSize: 12.5, color: C.muted2, padding: '8px 10px 4px' }}>{pageNums[pi]}. {pg.name}</div>
+                    {rows.map(({ f, si, fi }) => {
+                      const k = `${pi}-${si}-${fi}`
+                      return (
+                        <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px 7px 20px', borderRadius: 8, cursor: 'pointer', fontSize: 14.5, color: C.ink }}>
+                          <input type="checkbox" checked={bulkEditSel.has(k)} onChange={(e) => setBulkEditSel((s) => { const n = new Set(s); e.target.checked ? n.add(k) : n.delete(k); return n })} />
+                          <span style={{ color: C.navy2, fontSize: 15, width: 20, textAlign: 'center' }}>{iconFor(f.type)}</span>
+                          <span>{f.label || 'Untitled field'}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                )
+              })}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 20 }}>
+              <div onClick={() => setBulkEditOpen(false)} style={{ color: '#5b5667', fontWeight: 700, fontSize: 14, padding: '12px 18px', cursor: 'pointer' }}>Cancel</div>
+              <div onClick={runBulkEdit} style={{ background: bulkEditName.trim() && bulkEditSel.size ? C.navy2 : '#c9ccd4', color: '#fff', fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '12px 24px', borderRadius: 24, cursor: bulkEditName.trim() && bulkEditSel.size ? 'pointer' : 'default' }}>
+                {generating ? 'RENAMING…' : `RENAME ${bulkEditSel.size} FIELD${bulkEditSel.size === 1 ? '' : 'S'}`}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {sitemapOpen && (
         <div onClick={() => setSitemapOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(16,28,52,.5)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 70, padding: '60px 20px', overflow: 'auto' }}>

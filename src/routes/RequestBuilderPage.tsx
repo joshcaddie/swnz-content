@@ -222,6 +222,31 @@ export function RequestBuilderPage() {
       const rowId = fid(si, fi)
       write(`typ-${rowId}`, () => supabase.from('request_fields').update({ type, config: nextCfg }).eq('id', rowId))
     },
+    bulkAddFields: async (pageIndices, fields) => {
+      for (const pi of pageIndices) {
+        let sectionRow = maps.sectionIds[pi]?.[maps.sectionIds[pi].length - 1]
+        if (!sectionRow) {
+          const { data: sec } = await supabase.from('request_sections').insert({ page_id: pid(pi), name: 'Page content', position: 0 }).select('id').single()
+          sectionRow = sec!.id
+        }
+        const count = data.fields.filter((f) => f.section_id === sectionRow).length
+        const inserts = fields.map((f, i) => ({
+          section_id: sectionRow, type: f.type, label: f.label, tag: f.tag ?? null,
+          config: { ...(f.config ?? {}), key: newFieldKey() }, position: count + i,
+        }))
+        const { error } = await supabase.from('request_fields').insert(inserts)
+        if (error) { alert(`Could not add fields: ${error.message}`); return }
+      }
+      await refresh()
+    },
+    bulkRenameFields: async (targets, name) => {
+      const ids = targets.map((t) => maps.fieldIds[t.pi]?.[t.si]?.[t.fi]).filter(Boolean)
+      if (ids.length) {
+        const { error } = await supabase.from('request_fields').update({ label: name }).in('id', ids as string[])
+        if (error) { alert(`Could not rename: ${error.message}`); return }
+      }
+      await refresh()
+    },
   }
 
   const addField = async (type: FieldType, label: string) => {

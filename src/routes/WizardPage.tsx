@@ -111,6 +111,21 @@ export function WizardPage() {
       f.type = type
       if (needsOptions(type) && !(f.config?.options?.length)) f.config = { ...(f.config ?? {}), options: ['Option 1', 'Option 2'] }
     }),
+    bulkAddFields: (pageIndices, fields) => mutate((s) => {
+      for (const pi of pageIndices) {
+        const page = s.pages[pi]
+        if (!page) continue
+        if (page.sections.length === 0) page.sections.push({ name: 'Page content', fields: [] })
+        const sec = page.sections[page.sections.length - 1]
+        for (const f of fields) sec.fields.push({ ...f, config: { ...(f.config ?? {}), key: newFieldKey() } })
+      }
+    }),
+    bulkRenameFields: (targets, name) => mutate((s) => {
+      for (const t of targets) {
+        const f = s.pages[t.pi]?.sections[t.si]?.fields[t.fi]
+        if (f) f.label = name
+      }
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [activePage, structure])
 
