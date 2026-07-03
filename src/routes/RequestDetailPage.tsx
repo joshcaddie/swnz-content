@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useRequest, useUpdateRequest } from '../api/requests'
 import { useReview } from '../api/answers'
 import { useComments, useAddComment } from '../api/comments'
@@ -9,12 +10,18 @@ import { useProfiles } from '../api/profiles'
 import { sendDecision } from '../api/email'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
+import { portalUploadFile } from '../api/portal'
+import { qk } from '../api/keys'
 import { FieldInput, fileStoragePath, type UploadedFile } from '../fields/FieldInput'
 import { isDisplayField } from '../fields/registry'
 import { Modal } from './ClientsPage'
-import type { AnswerRow, AnswerStatus } from '../lib/database.types'
+import type { AnswerRow, AnswerStatus, Json } from '../lib/database.types'
 import { C, badgeStyles, formatDate } from '../theme'
 import { FullScreenMessage } from '../App'
+
+// Fills the viewport below the top chrome (which sits inside the layout's zoom:0.8),
+// so the nav and content columns scroll independently instead of the whole page.
+const PAGE_HEIGHT = 'calc(100vh / 0.8 - 80px)'
 
 const statusTick = (status: AnswerStatus | undefined) => {
   if (status === 'approved') return { bg: C.green, border: C.green, mark: '✓', color: '#fff' }
@@ -26,6 +33,7 @@ const statusTick = (status: AnswerStatus | undefined) => {
 export function RequestDetailPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const { profile } = useAuth()
   const { data, isLoading } = useRequest(id)
   const review = useReview(id)
@@ -40,6 +48,61 @@ export function RequestDetailPage() {
   const [edit, setEdit] = useState<{ name: string; client_id: string | null; owner_id: string | null; due_date: string | null; status_badge: string | null; stage_id: string | null } | null>(null)
   const comments = useComments(id, selected)
   const addComment = useAddComment(id)
+
+  // Editable answer values with per-field instant autosave (team can add content too).
+  const [values, setValues] = useState<Record<string, Json>>({})
+  const [saveState, setSaveState] = useState<Record<string, 'saving' | 'saved'>>({})
+  const editingRef = useRef<string | null>(null)
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+
+  // Seed / re-seed local values from the server, but never clobber the field
+  // currently being edited on this screen.
+  useEffect(() => {
+    if (!data) return
+    setValues((prev) => {
+      const next: Record<string, Json> = Object.fromEntries(data.answers.map((a) => [a.field_id, a.value]))
+      const editing = editingRef.current
+      if (editing && editing in prev) next[editing] = prev[editing]
+      return next
+    })
+  }, [data])
+
+  // Live multi-user editing: apply other people's saved values as they happen.
+  useEffect(() => {
+    const ch = supabase
+      .channel(`answers-${id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'answers', filter: `request_id=eq.${id}` }, (payload) => {
+        const row = payload.new as { field_id?: string; value?: Json } | null
+        if (!row?.field_id) return
+        if (editingRef.current === row.field_id) return // don't overwrite what I'm typing
+        setValues((v) => ({ ...v, [row.field_id!]: row.value ?? null }))
+        qc.invalidateQueries({ queryKey: qk.request(id) })
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [id, qc])
+
+  // Clicking a field in the nav scrolls the middle to it (across page switches).
+  useEffect(() => {
+    if (!selected) return
+    const t = setTimeout(() => document.getElementById(`rev-field-${selected}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30)
+    return () => clearTimeout(t)
+  }, [selected])
+
+  const scheduleSave = (fieldId: string, value: Json) => {
+    setValues((v) => ({ ...v, [fieldId]: value }))
+    setSaveState((s) => ({ ...s, [fieldId]: 'saving' }))
+    const prev = timers.current.get(fieldId)
+    if (prev) clearTimeout(prev)
+    timers.current.set(fieldId, setTimeout(async () => {
+      try {
+        await review.saveValue(fieldId, value)
+        setSaveState((s) => ({ ...s, [fieldId]: 'saved' }))
+      } catch {
+        setSaveState((s) => { const n = { ...s }; delete n[fieldId]; return n })
+      }
+    }, 500))
+  }
 
   const copyLink = async () => {
     const url = `${window.location.origin}/c/${data?.request.public_token}`
@@ -99,35 +162,41 @@ export function RequestDetailPage() {
 
   // default selection = first input field
   const activeFieldId = selected ?? inputFields[0]?.id ?? null
-  const activeField = data?.fields.find((f) => f.id === activeFieldId) ?? null
-  const activeAnswer = activeFieldId ? answersByField.get(activeFieldId) : undefined
 
   if (isLoading || !data) return <FullScreenMessage text="Loading request…" />
 
   const badge = data.request.status_badge
   const b = badge ? badgeStyles[badge] : null
 
-  const doApprove = async () => {
-    if (!activeAnswer) return
-    await review.approve(activeAnswer.id)
+  // Which page to show in the middle — the selected field's page, else the first with fields.
+  const secToPage = new Map(data.sections.map((s) => [s.id, s.page_id]))
+  const pageOfField = (fid: string | null) => (fid ? secToPage.get(data.fields.find((f) => f.id === fid)?.section_id ?? '') ?? null : null)
+  const firstPageWithFields = data.pages.find((pg) => data.sections.some((s) => s.page_id === pg.id && data.fields.some((f) => f.section_id === s.id && !isDisplayField(f.type))))
+  const activePageId = pageOfField(activeFieldId) ?? firstPageWithFields?.id ?? null
+  const activePage = data.pages.find((pg) => pg.id === activePageId) ?? null
+
+  const approveField = async (a: AnswerRow | undefined) => {
+    if (!a) return
+    await review.approve(a.id)
     sendDecision(id, true).catch(() => {})
   }
-  const doRequestChanges = async () => {
-    if (!activeAnswer) return
-    await review.requestChanges(activeAnswer.id)
-    if (commentText.trim()) {
-      await addComment.mutateAsync({ fieldId: activeFieldId, body: commentText, authorName: profile?.name ?? 'Team' })
+  const requestChangesField = async (a: AnswerRow | undefined, fieldId: string) => {
+    if (!a) return
+    await review.requestChanges(a.id)
+    if (selected === fieldId && commentText.trim()) {
+      await addComment.mutateAsync({ fieldId, body: commentText, authorName: profile?.name ?? 'Team' })
       setCommentText('')
     }
-    sendDecision(id, false, commentText).catch(() => {})
+    sendDecision(id, false, selected === fieldId ? commentText : '').catch(() => {})
   }
   const approveAll = async () => {
     await review.approveAllSubmitted()
     sendDecision(id, true).catch(() => {})
   }
+  const teamUpload = (fieldId: string) => (file: File) => portalUploadFile(data.request.public_token, fieldId, file)
 
   return (
-    <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+    <div style={{ flex: 1, display: 'flex', height: PAGE_HEIGHT, minHeight: 0, overflow: 'hidden' }}>
       {/* sidebar checklist */}
       <div style={{ width: 625, flex: 'none', background: '#fff', borderRight: `1px solid ${C.line}`, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         <div style={{ padding: '26px 28px 18px', borderBottom: '1px solid #eeedf1' }}>
@@ -202,61 +271,87 @@ export function RequestDetailPage() {
           <div onClick={approveAll} style={{ background: C.navy2, color: '#fff', fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '13px 22px', borderRadius: 26, cursor: 'pointer' }}>APPROVE ALL SUBMITTED</div>
         </div>
 
-        <div className="swnz-scroll" style={{ flex: 1, overflowY: 'auto', padding: '0 40px 40px' }}>
+        <div className="swnz-scroll" style={{ flex: 1, overflowY: 'auto', padding: '0 40px 60px' }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 22 }}>
             <div style={{ border: '1.5px solid #bcd4f0', color: '#3f6cab', background: '#eaf2fc', fontWeight: 700, fontSize: 16, padding: '9px 22px', borderRadius: 24 }}>
               Approved {approved} / {total} · {submitted} awaiting review
             </div>
           </div>
 
-          {activeField ? (
-            <div style={{ background: '#fff', border: '1.5px solid #bfe0f2', borderRadius: 20, padding: '34px 40px', maxWidth: 1100, margin: '0 auto', boxShadow: '0 6px 22px rgba(60,40,90,.08)' }}>
-              {activeAnswer?.status === 'approved' && (
-                <Banner color="#1f8a4c" bg="#e7f7ec" icon="✓">The answer is saved and approved.</Banner>
-              )}
-              {activeAnswer?.status === 'submitted' && (
-                <Banner color={C.navy2} bg="#e9f5fc" icon="•">Submitted — awaiting your review.</Banner>
-              )}
-              {activeAnswer?.status === 'changes_requested' && (
-                <Banner color="#c9491f" bg="#fdeee9" icon="!">Changes requested from the client.</Banner>
-              )}
+          {activePage ? (
+            <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+              <div style={{ fontWeight: 800, fontSize: 30, color: C.inkDark, marginBottom: 4 }}>{activePage.name}</div>
+              <div style={{ color: C.muted, fontSize: 15, marginBottom: 20 }}>Edit any field below — changes save automatically and sync live with your teammates.</div>
 
-              <div style={{ fontWeight: 800, fontSize: 24, lineHeight: 1.4, color: C.inkDark, margin: '20px 0 18px' }}>{activeField.label}</div>
-              <FieldInput type={activeField.type} label={activeField.label} config={activeField.config} value={activeAnswer?.value ?? null} onChange={() => {}} readOnly onOpenFile={openFile} onFileUrl={fileUrl} />
+              {data.sections.filter((s) => s.page_id === activePage.id).map((sec) => {
+                const secFields = data.fields.filter((f) => f.section_id === sec.id && !isDisplayField(f.type))
+                if (secFields.length === 0) return null
+                return (
+                  <div key={sec.id} style={{ marginBottom: 8 }}>
+                    <div style={{ fontWeight: 800, fontSize: 17, color: C.navy2, margin: '18px 0 10px' }}>{sec.name}</div>
+                    {secFields.map((f) => {
+                      const ans = answersByField.get(f.id)
+                      const t = statusTick(ans?.status)
+                      const sel = selected === f.id
+                      const ss = saveState[f.id]
+                      return (
+                        <div
+                          key={f.id}
+                          id={`rev-field-${f.id}`}
+                          onFocusCapture={() => { editingRef.current = f.id; setSelected(f.id) }}
+                          onBlurCapture={() => { if (editingRef.current === f.id) editingRef.current = null }}
+                          style={{ background: '#fff', border: sel ? `1.5px solid ${C.cyan}` : '1px solid #e9e8ee', borderRadius: 16, padding: '22px 26px', marginBottom: 14, boxShadow: '0 2px 10px rgba(40,30,60,.05)', scrollMarginTop: 12 }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                            <div style={{ fontWeight: 800, fontSize: 18, color: C.inkDark, flex: 1 }}>{f.label}{f.config?.required && <span style={{ color: '#c9491f' }}> *</span>}</div>
+                            {ss && <span style={{ fontSize: 12.5, color: ss === 'saving' ? C.muted2 : '#1d9e6f', fontWeight: 600 }}>{ss === 'saving' ? 'Saving…' : '✓ Saved'}</span>}
+                            <span style={{ width: 22, height: 22, borderRadius: '50%', background: t.bg, border: `2px solid ${t.border}`, color: t.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, flex: 'none' }}>{t.mark}</span>
+                          </div>
+                          {f.config?.instructions && <div style={{ color: C.muted, fontSize: 14, marginBottom: 10 }}>{f.config.instructions}</div>}
+                          <FieldInput
+                            type={f.type}
+                            label={f.label}
+                            config={f.config}
+                            value={values[f.id] ?? null}
+                            onChange={(v) => scheduleSave(f.id, v)}
+                            onUpload={teamUpload(f.id)}
+                            onOpenFile={openFile}
+                            onFileUrl={fileUrl}
+                          />
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 16 }}>
+                            <button onClick={() => approveField(ans)} disabled={!ans || ans.status === 'approved'} style={{ background: ans && ans.status !== 'approved' ? C.green : '#cfe8d6', color: '#fff', fontWeight: 800, fontSize: 13, letterSpacing: '0.4px', padding: '11px 20px', borderRadius: 24, border: 'none', cursor: ans && ans.status !== 'approved' ? 'pointer' : 'default' }}>{ans?.status === 'approved' ? 'APPROVED' : 'APPROVE'}</button>
+                            <button onClick={() => requestChangesField(ans, f.id)} disabled={!ans} style={{ background: '#fff', color: C.navy2, fontWeight: 800, fontSize: 12.5, letterSpacing: '0.4px', padding: '10px 18px', borderRadius: 22, border: `1.5px solid ${C.navy2}`, cursor: ans ? 'pointer' : 'default', opacity: ans ? 1 : 0.5 }}>REQUEST CHANGES</button>
+                            <div style={{ flex: 1 }} />
+                            <div onClick={() => setSelected(sel ? null : f.id)} style={{ color: C.cyan, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>💬 Comments{sel && comments.data ? ` (${comments.data.length})` : ''}</div>
+                          </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', marginTop: 30, gap: 16 }}>
-                <button onClick={doApprove} disabled={!activeAnswer || activeAnswer.status === 'approved'} style={{ background: activeAnswer && activeAnswer.status !== 'approved' ? C.green : '#cfe8d6', color: '#fff', fontWeight: 800, fontSize: 14, letterSpacing: '0.4px', padding: '14px 24px', borderRadius: 28, border: 'none', cursor: activeAnswer && activeAnswer.status !== 'approved' ? 'pointer' : 'default' }}>APPROVE</button>
-                <button onClick={doRequestChanges} disabled={!activeAnswer} style={{ background: '#fff', color: C.navy2, fontWeight: 800, fontSize: 13, letterSpacing: '0.4px', padding: '13px 22px', borderRadius: 24, border: `1.5px solid ${C.navy2}`, cursor: activeAnswer ? 'pointer' : 'default' }}>REQUEST CHANGES</button>
-                <div style={{ flex: 1 }} />
-              </div>
-
-              {/* comments */}
-              <div style={{ marginTop: 28, borderTop: '1px solid #f0eff3', paddingTop: 20 }}>
-                <div style={{ fontWeight: 800, fontSize: 16, color: C.inkDark, marginBottom: 12 }}>Comments</div>
-                {(comments.data ?? []).map((c) => (
-                  <div key={c.id} style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-                    <div style={{ width: 30, height: 30, borderRadius: '50%', background: c.author_type === 'team' ? C.cyan : '#86d29a', color: '#fff', fontWeight: 800, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{(c.author_name ?? '?').slice(0, 1).toUpperCase()}</div>
-                    <div>
-                      <div style={{ fontSize: 13, color: C.muted }}>{c.author_name ?? (c.author_type === 'team' ? 'Team' : 'Client')}</div>
-                      <div style={{ fontSize: 15, color: C.ink }}>{c.body}</div>
-                    </div>
+                          {sel && (
+                            <div style={{ marginTop: 16, borderTop: '1px solid #f0eff3', paddingTop: 16 }}>
+                              {(comments.data ?? []).map((c) => (
+                                <div key={c.id} style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+                                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: c.author_type === 'team' ? C.cyan : '#86d29a', color: '#fff', fontWeight: 800, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{(c.author_name ?? '?').slice(0, 1).toUpperCase()}</div>
+                                  <div>
+                                    <div style={{ fontSize: 12.5, color: C.muted }}>{c.author_name ?? (c.author_type === 'team' ? 'Team' : 'Client')}</div>
+                                    <div style={{ fontSize: 15, color: C.ink }}>{c.body}</div>
+                                  </div>
+                                </div>
+                              ))}
+                              <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+                                <input value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Add a comment…" style={{ flex: 1, border: '1px solid #e1e0e7', borderRadius: 10, padding: '11px 13px', fontFamily: 'inherit', fontSize: 15, outline: 'none' }} />
+                                <button onClick={async () => { if (commentText.trim()) { await addComment.mutateAsync({ fieldId: f.id, body: commentText, authorName: profile?.name ?? 'Team' }); setCommentText('') } }} style={{ background: C.navy2, color: '#fff', fontWeight: 700, fontSize: 14, padding: '0 18px', borderRadius: 10, border: 'none', cursor: 'pointer' }}>Post</button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
-                ))}
-                <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
-                  <input value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Add a comment…" style={{ flex: 1, border: '1px solid #e1e0e7', borderRadius: 10, padding: '12px 14px', fontFamily: 'inherit', fontSize: 15, outline: 'none' }} />
-                  <button onClick={async () => { if (commentText.trim()) { await addComment.mutateAsync({ fieldId: activeFieldId, body: commentText, authorName: profile?.name ?? 'Team' }); setCommentText('') } }} style={{ background: C.navy2, color: '#fff', fontWeight: 700, fontSize: 14, padding: '0 20px', borderRadius: 10, border: 'none', cursor: 'pointer' }}>Post</button>
-                </div>
-              </div>
+                )
+              })}
             </div>
           ) : (
             <div style={{ textAlign: 'center', color: C.muted, marginTop: 40 }}>This request has no fields yet.</div>
           )}
-
-          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 30 }}>
-            <div style={{ width: 240, height: 8, background: '#e4e2ea', borderRadius: 6, overflow: 'hidden' }}>
-              <div style={{ width: `${total ? (approved / total) * 100 : 0}%`, height: '100%', background: C.gradient, borderRadius: 6 }} />
-            </div>
-          </div>
         </div>
       </div>
 
@@ -328,11 +423,3 @@ function EditField({ label, children, grow }: { label: string; children: React.R
   )
 }
 
-function Banner({ color, bg, icon, children }: { color: string; bg: string; icon: string; children: React.ReactNode }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: bg, borderRadius: 12, padding: '14px 18px' }}>
-      <span style={{ width: 28, height: 28, borderRadius: '50%', background: color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, flex: 'none' }}>{icon}</span>
-      <span style={{ color, fontWeight: 700, fontSize: 16 }}>{children}</span>
-    </div>
-  )
-}
