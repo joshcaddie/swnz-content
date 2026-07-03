@@ -45,6 +45,8 @@ export function collectFieldRefs(s: Structure): FieldRef[] {
 export interface SitemapFieldSpec {
   type: FieldType
   label: string
+  /** Choice fields (checkbox/dropdown/…) carry their options here. */
+  options?: string[]
 }
 
 export const DEFAULT_SITEMAP_FIELDS: SitemapFieldSpec[] = [
@@ -106,6 +108,7 @@ export interface BuilderApi {
 /** Build a real field from a {type,label} spec — shared by the sitemap + bulk tools. */
 export function specToField(spec: SitemapFieldSpec): StructureField {
   const multi = spec.type === 'image' || spec.type === 'file'
+  const opts = (spec.options ?? []).filter((o) => o.trim())
   return {
     type: spec.type,
     label: spec.label,
@@ -113,7 +116,7 @@ export function specToField(spec: SitemapFieldSpec): StructureField {
     config: {
       key: newFieldKey(),
       ...(multi ? { multi: true, maxFiles: 10 } : {}),
-      ...(needsOptions(spec.type) ? { options: ['Option 1', 'Option 2'] } : {}),
+      ...(needsOptions(spec.type) ? { options: opts.length ? opts : ['Option 1', 'Option 2'] } : {}),
     },
   }
 }
@@ -273,13 +276,20 @@ export function StructureBuilder(p: Props) {
 
             <div style={{ fontWeight: 800, fontSize: 13, letterSpacing: '0.6px', color: C.muted2, margin: '12px 0 10px' }}>1. FIELDS TO ADD</div>
             {bulkAddSpecs.map((f, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                <span style={{ color: C.navy2, fontSize: 17, width: 22, textAlign: 'center' }}>{iconFor(f.type)}</span>
-                <select value={f.type} onChange={(e) => setBulkAddSpecs((arr) => arr.map((x, j) => (j === i ? { ...x, type: e.target.value as FieldType } : x)))} style={{ width: 190, border: '1px solid #e1e0e7', borderRadius: 10, padding: '11px 10px', fontFamily: 'inherit', fontSize: 14, color: C.ink, outline: 'none', background: '#fff', flex: 'none' }}>
-                  {FIELD_TYPES.filter((ft) => !isDisplayField(ft.type)).map((ft) => <option key={ft.type} value={ft.type}>{ft.label}</option>)}
-                </select>
-                <input value={f.label} onChange={(e) => setBulkAddSpecs((arr) => arr.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} placeholder="Field name shown to the client…" style={{ flex: 1, border: '1px solid #e1e0e7', borderRadius: 10, padding: '11px 13px', fontFamily: 'inherit', fontSize: 14.5, color: C.ink, outline: 'none' }} />
-                {bulkAddSpecs.length > 1 && <span onClick={() => setBulkAddSpecs((arr) => arr.filter((_, j) => j !== i))} style={{ color: '#c9491f', fontWeight: 800, fontSize: 16, cursor: 'pointer' }}>✕</span>}
+              <div key={i} style={{ marginBottom: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ color: C.navy2, fontSize: 17, width: 22, textAlign: 'center' }}>{iconFor(f.type)}</span>
+                  <select value={f.type} onChange={(e) => setBulkAddSpecs((arr) => arr.map((x, j) => (j === i ? { ...x, type: e.target.value as FieldType, options: needsOptions(e.target.value as FieldType) && !x.options?.length ? ['Option 1', 'Option 2'] : x.options } : x)))} style={{ width: 190, border: '1px solid #e1e0e7', borderRadius: 10, padding: '11px 10px', fontFamily: 'inherit', fontSize: 14, color: C.ink, outline: 'none', background: '#fff', flex: 'none' }}>
+                    {FIELD_TYPES.filter((ft) => !isDisplayField(ft.type)).map((ft) => <option key={ft.type} value={ft.type}>{ft.label}</option>)}
+                  </select>
+                  <input value={f.label} onChange={(e) => setBulkAddSpecs((arr) => arr.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} placeholder="Field name shown to the client…" style={{ flex: 1, border: '1px solid #e1e0e7', borderRadius: 10, padding: '11px 13px', fontFamily: 'inherit', fontSize: 14.5, color: C.ink, outline: 'none' }} />
+                  {bulkAddSpecs.length > 1 && <span onClick={() => setBulkAddSpecs((arr) => arr.filter((_, j) => j !== i))} style={{ color: '#c9491f', fontWeight: 800, fontSize: 16, cursor: 'pointer' }}>✕</span>}
+                </div>
+                {needsOptions(f.type) && (
+                  <div style={{ marginLeft: 32, marginTop: 4, borderLeft: '2px solid #ececf0', paddingLeft: 12 }}>
+                    <OptionsEditor options={f.options ?? []} onChange={(options) => setBulkAddSpecs((arr) => arr.map((x, j) => (j === i ? { ...x, options } : x)))} />
+                  </div>
+                )}
               </div>
             ))}
             <div onClick={() => setBulkAddSpecs((arr) => [...arr, { type: 'single_line', label: '' }])} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: C.cyan, fontWeight: 700, fontSize: 14, cursor: 'pointer', marginTop: 2 }}>＋ Add another field</div>
@@ -442,22 +452,29 @@ export function StructureBuilder(p: Props) {
                   These fields will be added to <strong>each of the {customPages.length} pages</strong>. Pick the type and name them however you like.
                 </div>
                 {customFields.map((f, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                    <span style={{ color: C.navy2, fontSize: 17, width: 22, textAlign: 'center' }}>{iconFor(f.type)}</span>
-                    <select
-                      value={f.type}
-                      onChange={(e) => setCustomFields((arr) => arr.map((x, j) => (j === i ? { ...x, type: e.target.value as FieldType } : x)))}
-                      style={{ width: 190, border: '1px solid #e1e0e7', borderRadius: 10, padding: '11px 10px', fontFamily: 'inherit', fontSize: 14, color: C.ink, outline: 'none', background: '#fff', flex: 'none' }}
-                    >
-                      {FIELD_TYPES.filter((ft) => !isDisplayField(ft.type)).map((ft) => <option key={ft.type} value={ft.type}>{ft.label}</option>)}
-                    </select>
-                    <input
-                      value={f.label}
-                      onChange={(e) => setCustomFields((arr) => arr.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))}
-                      placeholder="Field name shown to the client…"
-                      style={{ flex: 1, border: '1px solid #e1e0e7', borderRadius: 10, padding: '11px 13px', fontFamily: 'inherit', fontSize: 14.5, color: C.ink, outline: 'none' }}
-                    />
-                    <span onClick={() => setCustomFields((arr) => arr.filter((_, j) => j !== i))} style={{ color: '#c9491f', fontWeight: 800, fontSize: 16, cursor: 'pointer' }}>✕</span>
+                  <div key={i} style={{ marginBottom: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ color: C.navy2, fontSize: 17, width: 22, textAlign: 'center' }}>{iconFor(f.type)}</span>
+                      <select
+                        value={f.type}
+                        onChange={(e) => setCustomFields((arr) => arr.map((x, j) => (j === i ? { ...x, type: e.target.value as FieldType, options: needsOptions(e.target.value as FieldType) && !x.options?.length ? ['Option 1', 'Option 2'] : x.options } : x)))}
+                        style={{ width: 190, border: '1px solid #e1e0e7', borderRadius: 10, padding: '11px 10px', fontFamily: 'inherit', fontSize: 14, color: C.ink, outline: 'none', background: '#fff', flex: 'none' }}
+                      >
+                        {FIELD_TYPES.filter((ft) => !isDisplayField(ft.type)).map((ft) => <option key={ft.type} value={ft.type}>{ft.label}</option>)}
+                      </select>
+                      <input
+                        value={f.label}
+                        onChange={(e) => setCustomFields((arr) => arr.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))}
+                        placeholder="Field name shown to the client…"
+                        style={{ flex: 1, border: '1px solid #e1e0e7', borderRadius: 10, padding: '11px 13px', fontFamily: 'inherit', fontSize: 14.5, color: C.ink, outline: 'none' }}
+                      />
+                      <span onClick={() => setCustomFields((arr) => arr.filter((_, j) => j !== i))} style={{ color: '#c9491f', fontWeight: 800, fontSize: 16, cursor: 'pointer' }}>✕</span>
+                    </div>
+                    {needsOptions(f.type) && (
+                      <div style={{ marginLeft: 32, marginTop: 4, borderLeft: '2px solid #ececf0', paddingLeft: 12 }}>
+                        <OptionsEditor options={f.options ?? []} onChange={(options) => setCustomFields((arr) => arr.map((x, j) => (j === i ? { ...x, options } : x)))} />
+                      </div>
+                    )}
                   </div>
                 ))}
                 <div
