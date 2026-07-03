@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import type { Json, RequestFieldRow } from '../lib/database.types'
-import { portalLoad, portalSave, portalUploadFile, portalRepeatSection, portalVerifySend, portalVerifyCheck, portalAiGenerate, portalFileUrl, type PortalData } from '../api/portal'
+import type { AnswerRow, Json, RequestFieldRow } from '../lib/database.types'
+import { portalLoad, portalSaveField, portalSubmitAll, portalLoadAnswers, portalUploadFile, portalRepeatSection, portalVerifySend, portalVerifyCheck, portalAiGenerate, portalFileUrl, type PortalData } from '../api/portal'
 import { FieldInput, fileStoragePath, type UploadedFile } from '../fields/FieldInput'
 import { isDisplayField } from '../fields/registry'
 import { brandOf } from '../brands'
@@ -22,9 +22,17 @@ export function ClientPortal() {
   const [error, setError] = useState<string | null>(null)
   const [values, setValues] = useState<Record<string, Json>>({})
   const [verified, setVerified] = useState(false)
-  const [saving, setSaving] = useState<'idle' | 'saving' | 'submitting'>('idle')
+  const [saving, setSaving] = useState<'idle' | 'submitting'>('idle')
   const [savedNote, setSavedNote] = useState<string | null>(null)
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [activePageId, setActivePageId] = useState<string | null>(null)
+
+  // Per-field autosave (only ever sends the field that changed, so a client's save
+  // can't overwrite content someone else added), plus live merge from a poll.
+  const editingRef = useRef<string | null>(null)
+  const dirtyRef = useRef<Set<string>>(new Set())
+  const pendingRef = useRef(new Map<string, Json>())
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
 
   useEffect(() => {
     portalLoad(token)
@@ -35,6 +43,50 @@ export function ClientPortal() {
       })
       .catch((e) => setError(String(e.message ?? e)))
   }, [token])
+
+  const mergeAnswers = (rows: AnswerRow[]) => {
+    setValues((prev) => {
+      const next = { ...prev }
+      for (const a of rows) {
+        if (dirtyRef.current.has(a.field_id) || editingRef.current === a.field_id) continue
+        next[a.field_id] = a.value
+      }
+      return next
+    })
+  }
+
+  // Live sync: poll answers every 4s once verified; merge protects local edits.
+  useEffect(() => {
+    if (!verified || !data) return
+    let alive = true
+    const iv = setInterval(async () => {
+      try {
+        const rows = await portalLoadAnswers(token)
+        if (alive) mergeAnswers(rows)
+      } catch { /* keep trying */ }
+    }, 4000)
+    return () => { alive = false; clearInterval(iv) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [verified, !!data, token])
+
+  const flush = async (fieldId: string) => {
+    const v = pendingRef.current.get(fieldId)
+    setSaveState('saving')
+    try {
+      await portalSaveField(token, fieldId, v as Json)
+      if (pendingRef.current.get(fieldId) === v) {
+        dirtyRef.current.delete(fieldId)
+        pendingRef.current.delete(fieldId)
+      }
+      setSaveState('saved')
+    } catch (e) {
+      setSaveState('error')
+      setSavedNote(`Could not save: ${(e as Error).message}`)
+      const t = timers.current.get(fieldId)
+      if (t) clearTimeout(t)
+      timers.current.set(fieldId, setTimeout(() => flush(fieldId), 2500))
+    }
+  }
 
   // Conditions: a field with config.condition only shows when its trigger answer matches.
   const keyToFieldId = useMemo(() => {
@@ -67,22 +119,23 @@ export function ClientPortal() {
   if (!data) return <Centered><div style={{ color: C.muted }}>Loading…</div></Centered>
   if (!verified) return <VerifyGate token={token} onVerified={() => setVerified(true)} />
 
-  const persist = async (submit: boolean) => {
-    if (submit) {
-      const missing = inputFields.filter((f) => f.config?.required && !hasValue(values[f.id]))
-      if (missing.length > 0) {
-        setSavedNote(`⚠ Please complete ${missing.length} required field${missing.length > 1 ? 's' : ''} (marked *) before submitting.`)
-        return
-      }
+  const submitForReview = async () => {
+    const missing = inputFields.filter((f) => f.config?.required && !hasValue(values[f.id]))
+    if (missing.length > 0) {
+      setSavedNote(`⚠ Please complete ${missing.length} required field${missing.length > 1 ? 's' : ''} (marked *) before submitting.`)
+      return
     }
-    setSaving(submit ? 'submitting' : 'saving')
+    setSaving('submitting')
     setSavedNote(null)
     try {
-      const payload = inputFields.map((f) => ({ field_id: f.id, value: values[f.id] ?? null }))
-      await portalSave(token, payload, submit)
-      setSavedNote(submit ? 'Submitted for review — thank you!' : 'Draft saved.')
+      // Make sure any in-flight edits are saved first, then flip everything to submitted.
+      for (const [fid] of pendingRef.current) await portalSaveField(token, fid, pendingRef.current.get(fid) as Json)
+      pendingRef.current.clear()
+      dirtyRef.current.clear()
+      await portalSubmitAll(token)
+      setSavedNote('Submitted for review — thank you!')
     } catch (e) {
-      setSavedNote(`Could not save: ${(e as Error).message}`)
+      setSavedNote(`Could not submit: ${(e as Error).message}`)
     } finally {
       setSaving('idle')
     }
@@ -100,7 +153,16 @@ export function ClientPortal() {
     }
   }
 
-  const setVal = (id: string, v: Json) => setValues((prev) => ({ ...prev, [id]: v }))
+  // Update + schedule a per-field autosave (500ms debounce).
+  const setVal = (id: string, v: Json) => {
+    setValues((prev) => ({ ...prev, [id]: v }))
+    dirtyRef.current.add(id)
+    pendingRef.current.set(id, v)
+    setSaveState('saving')
+    const prev = timers.current.get(id)
+    if (prev) clearTimeout(prev)
+    timers.current.set(id, setTimeout(() => flush(id), 500))
+  }
 
   const fileUrl = async (f: UploadedFile) => {
     const path = fileStoragePath(f)
@@ -218,7 +280,12 @@ export function ClientPortal() {
                       {fields.filter((f) => !f.config?.internalOnly && isVisible(f)).map((f) => {
                         const display = isDisplayField(f.type)
                         return (
-                          <div key={f.id} style={{ marginTop: display ? 18 : 22 }}>
+                          <div
+                            key={f.id}
+                            style={{ marginTop: display ? 18 : 22 }}
+                            onFocusCapture={() => { editingRef.current = f.id }}
+                            onBlurCapture={() => { if (editingRef.current === f.id) editingRef.current = null }}
+                          >
                             {!display && (
                               <div style={{ fontWeight: 700, fontSize: 17, color: C.ink, marginBottom: f.config?.instructions ? 4 : 10 }}>
                                 {f.label}{f.config?.required && <span style={{ color: '#c9491f' }}> *</span>}
@@ -272,10 +339,12 @@ export function ClientPortal() {
           </div>
         </div>
         <div style={{ textAlign: 'center' }}>
-          <div onClick={() => persist(false)} style={{ color: brand.accent, fontWeight: 700, fontSize: 16, textDecoration: 'underline', cursor: 'pointer' }}>{saving === 'saving' ? 'Saving…' : 'Save draft'}</div>
-          <div style={{ color: C.muted2, fontSize: 12, marginTop: 3 }}>You can close this page and come back later</div>
+          <div style={{ fontWeight: 700, fontSize: 15, color: saveState === 'error' ? '#c9491f' : saveState === 'saving' ? C.muted : '#1d9e6f' }}>
+            {saveState === 'saving' ? 'Saving…' : saveState === 'error' ? '⚠ Not saved — retrying' : '✓ All changes saved'}
+          </div>
+          <div style={{ color: C.muted2, fontSize: 12, marginTop: 3 }}>Saves automatically — you can close this page and come back later</div>
         </div>
-        <div onClick={() => persist(true)} style={{ background: brand.buttonBg, color: '#fff', fontWeight: 800, fontSize: 15, letterSpacing: '0.4px', padding: '15px 26px', borderRadius: 28, cursor: 'pointer' }}>{saving === 'submitting' ? 'SUBMITTING…' : 'SUBMIT FOR REVIEW'}</div>
+        <div onClick={() => saving === 'idle' && submitForReview()} style={{ background: brand.buttonBg, color: '#fff', fontWeight: 800, fontSize: 15, letterSpacing: '0.4px', padding: '15px 26px', borderRadius: 28, cursor: 'pointer', opacity: saving === 'submitting' ? 0.7 : 1 }}>{saving === 'submitting' ? 'SUBMITTING…' : 'SUBMIT FOR REVIEW'}</div>
       </div>
     </div>
   )

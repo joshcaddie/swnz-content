@@ -15,11 +15,46 @@ Deno.serve(async (req) => {
     const request = await requestByToken(db, token)
     if (!request) return json({ error: 'not_found' }, 404)
 
+    // Lightweight poll: return just this request's answers (for live sync in the portal).
+    if (body.action === 'load_answers') {
+      const { data: rows } = await db.from('answers').select('*').eq('request_id', request.id)
+      return json({ answers: rows ?? [] })
+    }
+
     // Only allow writing to fields that belong to THIS request.
     const { pages, sections, fields } = await loadStructure(db, request.id)
     const pageIds = new Set(pages.map((p) => p.id))
     const sectionIds = new Set(sections.filter((s) => pageIds.has(s.page_id)).map((s) => s.id))
     const validFieldIds = new Set(fields.filter((f) => sectionIds.has(f.section_id)).map((f) => f.id))
+
+    // Submit for review: flip existing answered fields to 'submitted' WITHOUT rewriting any
+    // values, so it can never overwrite content someone else added. Values are already saved
+    // by the portal's per-field autosave.
+    if (body.action === 'submit_all') {
+      const now = new Date().toISOString()
+      const { error, count } = await db
+        .from('answers')
+        .update({ status: 'submitted', submitted_at: now }, { count: 'exact' })
+        .eq('request_id', request.id)
+        .not('value', 'is', null)
+        .in('status', ['todo', 'changes_requested'])
+      if (error) return json({ error: error.message }, 500)
+      const notify = Deno.env.get('NOTIFY_EMAIL') ?? Deno.env.get('SMTP2GO_SENDER')
+      if (notify) {
+        await sendEmail({
+          to: notify,
+          brand: request.brand,
+          subject: `New submission: ${request.name}`,
+          html: emailLayout(
+            'A client submitted answers',
+            `<p><strong>${request.name}</strong> has ${count ?? 0} answer(s) ready for review.</p>`,
+            { label: 'Open request', url: portalLink(request.public_token) },
+            request.brand,
+          ),
+        }).catch(() => {})
+      }
+      return json({ ok: true, submitted: count ?? 0 })
+    }
 
     // "Add another response" for repeatable sections: clone the section's base fields.
     if (body.action === 'repeat_section') {

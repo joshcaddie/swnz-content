@@ -31,6 +31,30 @@ export async function portalSave(
   if (data?.error) throw new Error(data.error)
 }
 
+/** Autosave a single field (draft). Only touches that field, so it can't overwrite others. */
+export async function portalSaveField(token: string, fieldId: string, value: Json): Promise<void> {
+  await portalSave(token, [{ field_id: fieldId, value }], false)
+}
+
+/** Submit for review — flips answered fields to 'submitted' without rewriting any values. */
+export async function portalSubmitAll(token: string): Promise<void> {
+  const { data, error } = await supabase.functions.invoke('client-answer', {
+    body: { token, action: 'submit_all' },
+  })
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
+}
+
+/** Poll just the answers (for live sync). */
+export async function portalLoadAnswers(token: string): Promise<AnswerRow[]> {
+  const { data, error } = await supabase.functions.invoke('client-answer', {
+    body: { token, action: 'load_answers' },
+  })
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
+  return (data.answers ?? []) as AnswerRow[]
+}
+
 export async function portalSignUpload(token: string, fieldId: string, filename: string) {
   const { data, error } = await supabase.functions.invoke('client-upload', {
     body: { token, action: 'sign', field_id: fieldId, filename },
