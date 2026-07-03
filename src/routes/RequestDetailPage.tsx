@@ -49,7 +49,9 @@ export function RequestDetailPage() {
   // Editable answer values with per-field instant autosave (team can add content too).
   const [values, setValues] = useState<Record<string, Json>>({})
   const [answersLive, setAnswersLive] = useState<Record<string, AnswerRow>>({})
-  const [saveState, setSaveState] = useState<Record<string, 'saving' | 'saved'>>({})
+  const [saveState, setSaveState] = useState<Record<string, 'saving' | 'saved' | 'error'>>({})
+  const [saveErr, setSaveErr] = useState<Record<string, string>>({})
+  const [lastSync, setLastSync] = useState<string | null>(null)
   const editingRef = useRef<string | null>(null)
   const dirtyRef = useRef<Set<string>>(new Set())   // fields with an unsaved / in-flight local edit
   const pendingRef = useRef(new Map<string, Json>()) // latest value scheduled per field
@@ -82,15 +84,18 @@ export function RequestDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data])
 
-  // Reliable live sync: poll the answers table every 3.5s and merge. Works even
+  // Reliable live sync: poll the answers table every 3s and merge. Works even
   // where Realtime isn't delivering; merge() protects local edits.
   useEffect(() => {
     let alive = true
     const tick = async () => {
-      const { data: rows } = await supabase.from('answers').select('*').eq('request_id', id)
-      if (alive && rows) mergeAnswers(rows as AnswerRow[])
+      const { data: rows, error } = await supabase.from('answers').select('*').eq('request_id', id)
+      if (!alive) return
+      if (rows) mergeAnswers(rows as AnswerRow[])
+      setLastSync(error ? `sync error: ${error.message}` : new Date().toLocaleTimeString())
     }
-    const iv = setInterval(tick, 3500)
+    tick()
+    const iv = setInterval(tick, 3000)
     // Plus Realtime for instant updates when it is available.
     const ch = supabase
       .channel(`answers-${id}`)
@@ -110,6 +115,28 @@ export function RequestDetailPage() {
     return () => clearTimeout(t)
   }, [selected])
 
+  const flush = async (fieldId: string) => {
+    const v = pendingRef.current.get(fieldId)
+    setSaveState((s) => ({ ...s, [fieldId]: 'saving' }))
+    try {
+      await review.saveValue(fieldId, v as Json)
+      // Success: clear dirty only if nothing newer was typed while saving.
+      if (pendingRef.current.get(fieldId) === v) {
+        dirtyRef.current.delete(fieldId)
+        pendingRef.current.delete(fieldId)
+      }
+      setSaveState((s) => ({ ...s, [fieldId]: 'saved' }))
+      setSaveErr((e) => { const n = { ...e }; delete n[fieldId]; return n })
+    } catch (err) {
+      // Keep it dirty (so the poll can't wipe it) and retry shortly.
+      setSaveState((s) => ({ ...s, [fieldId]: 'error' }))
+      setSaveErr((e) => ({ ...e, [fieldId]: (err as Error).message || 'save failed' }))
+      const t = timers.current.get(fieldId)
+      if (t) clearTimeout(t)
+      timers.current.set(fieldId, setTimeout(() => flush(fieldId), 2500))
+    }
+  }
+
   const scheduleSave = (fieldId: string, value: Json) => {
     dirtyRef.current.add(fieldId)
     pendingRef.current.set(fieldId, value)
@@ -117,21 +144,7 @@ export function RequestDetailPage() {
     setSaveState((s) => ({ ...s, [fieldId]: 'saving' }))
     const prev = timers.current.get(fieldId)
     if (prev) clearTimeout(prev)
-    timers.current.set(fieldId, setTimeout(async () => {
-      const v = pendingRef.current.get(fieldId)
-      try {
-        await review.saveValue(fieldId, v as Json)
-        setSaveState((s) => ({ ...s, [fieldId]: 'saved' }))
-      } catch {
-        setSaveState((s) => { const n = { ...s }; delete n[fieldId]; return n })
-      } finally {
-        // Only clear "dirty" if no newer keystroke has been scheduled since.
-        if (pendingRef.current.get(fieldId) === v) {
-          dirtyRef.current.delete(fieldId)
-          pendingRef.current.delete(fieldId)
-        }
-      }
-    }, 500))
+    timers.current.set(fieldId, setTimeout(() => flush(fieldId), 500))
   }
 
   const copyLink = async () => {
@@ -304,9 +317,12 @@ export function RequestDetailPage() {
         </div>
 
         <div className="swnz-scroll" style={{ flex: 1, overflowY: 'auto', padding: '0 40px 60px' }}>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 22 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 22 }}>
             <div style={{ border: '1.5px solid #bcd4f0', color: '#3f6cab', background: '#eaf2fc', fontWeight: 700, fontSize: 16, padding: '9px 22px', borderRadius: 24 }}>
               Approved {approved} / {total} · {submitted} awaiting review
+            </div>
+            <div style={{ fontSize: 12.5, color: lastSync?.startsWith('sync error') ? '#c9491f' : C.muted2, fontWeight: 600 }}>
+              ⟳ Auto-saving · edits sync live {lastSync ? (lastSync.startsWith('sync error') ? `· ${lastSync}` : `· last synced ${lastSync}`) : ''}
             </div>
           </div>
 
@@ -336,7 +352,11 @@ export function RequestDetailPage() {
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
                             <div style={{ fontWeight: 800, fontSize: 18, color: C.inkDark, flex: 1 }}>{f.label}{f.config?.required && <span style={{ color: '#c9491f' }}> *</span>}</div>
-                            {ss && <span style={{ fontSize: 12.5, color: ss === 'saving' ? C.muted2 : '#1d9e6f', fontWeight: 600 }}>{ss === 'saving' ? 'Saving…' : '✓ Saved'}</span>}
+                            {ss && (
+                              <span title={saveErr[f.id]} style={{ fontSize: 12.5, fontWeight: 600, color: ss === 'saving' ? C.muted2 : ss === 'error' ? '#c9491f' : '#1d9e6f' }}>
+                                {ss === 'saving' ? 'Saving…' : ss === 'error' ? `⚠ Couldn't save${saveErr[f.id] ? ` — ${saveErr[f.id]}` : ''}` : '✓ Saved'}
+                              </span>
+                            )}
                             <span style={{ width: 22, height: 22, borderRadius: '50%', background: t.bg, border: `2px solid ${t.border}`, color: t.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, flex: 'none' }}>{t.mark}</span>
                           </div>
                           {f.config?.instructions && <div style={{ color: C.muted, fontSize: 14, marginBottom: 10 }}>{f.config.instructions}</div>}
