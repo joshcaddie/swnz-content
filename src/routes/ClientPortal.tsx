@@ -209,20 +209,20 @@ export function ClientPortal() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', flexDirection: 'column' }}>
-      <div style={{ height: 6, background: brand.bar }} />
-      <div style={{ background: brand.topBar, padding: '16px 26px', display: 'flex', alignItems: 'center', gap: 14 }}>
+    <div style={{ height: '100vh', overflow: 'hidden', background: C.bg, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ height: 6, background: brand.bar, flex: 'none' }} />
+      <div style={{ background: brand.topBar, padding: '16px 26px', display: 'flex', alignItems: 'center', gap: 14, flex: 'none' }}>
         <BrandLogo brand={brand} size={42} />
         {brand.logoImg && <div style={{ color: '#fff', fontWeight: 800, fontSize: 18 }}>{brand.name}</div>}
         {!brand.logoImg && brand.tagline && <div style={{ color: '#b9b3c2', fontWeight: 600, fontSize: 13 }}>{brand.tagline}</div>}
       </div>
 
-      <div className="swnz-scroll" style={{ flex: 1, overflowY: 'auto', padding: '32px 20px 140px' }} onScroll={onScrollSpy}>
+      <div className="swnz-scroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '32px 20px 140px' }} onScroll={onScrollSpy}>
         <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', gap: 30, alignItems: 'flex-start' }}>
           {renderedPages.length > 1 && (
-            <nav className="portal-nav" style={{ width: 235, flex: 'none', position: 'sticky', top: 0 }}>
+            <nav className="portal-nav" style={{ width: 235, flex: 'none', position: 'sticky', top: 8, alignSelf: 'flex-start' }}>
               <div style={{ fontWeight: 800, fontSize: 12, letterSpacing: '1.2px', color: C.muted2, margin: '6px 0 10px 12px' }}>PAGES</div>
-              <div style={{ background: '#fff', border: '1px solid #e9e8ee', borderRadius: 14, padding: 8, boxShadow: '0 2px 10px rgba(40,30,60,.05)', maxHeight: 'calc(100vh - 260px)', overflowY: 'auto' }} className="swnz-scroll">
+              <div style={{ background: '#fff', border: '1px solid #e9e8ee', borderRadius: 14, padding: 8, boxShadow: '0 2px 10px rgba(40,30,60,.05)', maxHeight: 'calc(100vh - 180px)', overflowY: 'auto' }} className="swnz-scroll">
                 {renderedPages.map((pg) => {
                   const st = pageStats.get(pg.id)
                   const done = !!st && st.total > 0 && st.answered >= st.total
