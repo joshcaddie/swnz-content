@@ -10,6 +10,7 @@ import { sendDecision } from '../api/email'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { portalUploadFile } from '../api/portal'
+import { downloadRequestContent } from '../lib/exportDoc'
 import { FieldInput, fileStoragePath, type UploadedFile } from '../fields/FieldInput'
 import { isDisplayField } from '../fields/registry'
 import { Modal } from './ClientsPage'
@@ -41,6 +42,7 @@ export function RequestDetailPage() {
   const [selected, setSelected] = useState<string | null>(null)
   const [commentText, setCommentText] = useState('')
   const [copied, setCopied] = useState(false)
+  const [exporting, setExporting] = useState<string | null>(null)
   const [editOpen, setEditOpen] = useState(false)
   const [edit, setEdit] = useState<{ name: string; client_id: string | null; owner_id: string | null; due_date: string | null; status_badge: string | null; stage_id: string | null } | null>(null)
   const comments = useComments(id, selected)
@@ -240,6 +242,18 @@ export function RequestDetailPage() {
   }
   const teamUpload = (fieldId: string) => (file: File) => portalUploadFile(data.request.public_token, fieldId, file)
 
+  const downloadAll = async () => {
+    if (exporting) return
+    setExporting('Preparing…')
+    try {
+      await downloadRequestContent(data, fileUrl, (msg) => setExporting(msg))
+    } catch (e) {
+      alert(`Could not build the download: ${(e as Error).message}`)
+    } finally {
+      setExporting(null)
+    }
+  }
+
   return (
     <div style={{ flex: 1, display: 'flex', height: PAGE_HEIGHT, minHeight: 0, overflow: 'hidden' }}>
       {/* sidebar checklist */}
@@ -313,6 +327,7 @@ export function RequestDetailPage() {
           <div onClick={openEdit} style={{ border: `1.5px solid ${C.navy2}`, color: C.navy2, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '11px 18px', borderRadius: 22, cursor: 'pointer', background: '#fff' }}>✎ EDIT</div>
           <div onClick={() => navigate(`/requests/${id}/edit`)} style={{ border: `1.5px solid ${C.navy2}`, color: C.navy2, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '11px 18px', borderRadius: 22, cursor: 'pointer', background: '#fff' }}>⚙ STRUCTURE</div>
           <div onClick={() => navigate('/activity')} style={{ border: `1.5px solid ${C.cyan}`, color: C.cyan, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '11px 18px', borderRadius: 22, cursor: 'pointer', background: '#fff' }}>⚡ ACTIVITY</div>
+          <div onClick={downloadAll} title="Download all content as a Google Doc + files (.zip)" style={{ border: `1.5px solid ${C.navy2}`, color: C.navy2, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '11px 18px', borderRadius: 22, cursor: exporting ? 'default' : 'pointer', background: '#fff', opacity: exporting ? 0.7 : 1 }}>{exporting ? `⬇ ${exporting}` : '⬇ DOWNLOAD ALL'}</div>
           <div onClick={approveAll} style={{ background: C.navy2, color: '#fff', fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '13px 22px', borderRadius: 26, cursor: 'pointer' }}>APPROVE ALL SUBMITTED</div>
         </div>
 
