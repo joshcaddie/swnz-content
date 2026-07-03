@@ -295,6 +295,20 @@ export function RequestDetailPage() {
               {(stages ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </EditField>
+
+          <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid #ececf0' }}>
+            <div style={{ fontWeight: 800, fontSize: 14, color: '#4b4556', marginBottom: 6 }}>Pages &amp; fields</div>
+            <div style={{ color: C.muted2, fontSize: 13, lineHeight: 1.5, marginBottom: 12 }}>
+              Change the pages, sections and fields — add fields, rename, reorder, bulk-add, and more.
+              Any content the client has already added is kept; only fields you delete lose their answer.
+            </div>
+            <div
+              onClick={() => navigate(`/requests/${id}/edit`)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: `1.5px solid ${C.navy2}`, color: C.navy2, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '12px 20px', borderRadius: 24, cursor: 'pointer' }}
+            >
+              ⚙ EDIT PAGES, SECTIONS &amp; FIELDS →
+            </div>
+          </div>
         </Modal>
       )}
     </div>
