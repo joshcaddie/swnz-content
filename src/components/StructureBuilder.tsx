@@ -103,6 +103,8 @@ export interface BuilderApi {
   bulkAddFields: (pageIndices: number[], fields: StructureField[]) => void | Promise<void>
   /** Rename every targeted field to the same label. */
   bulkRenameFields: (targets: { pi: number; si: number; fi: number }[], name: string) => void | Promise<void>
+  /** Delete every targeted field (and any client answers on them). */
+  bulkDeleteFields: (targets: { pi: number; si: number; fi: number }[]) => void | Promise<void>
 }
 
 /** Build a real field from a {type,label} spec — shared by the sitemap + bulk tools. */
@@ -149,6 +151,9 @@ export function StructureBuilder(p: Props) {
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
   const [bulkEditName, setBulkEditName] = useState('')
   const [bulkEditSel, setBulkEditSel] = useState<Set<string>>(new Set())
+  // Bulk delete fields
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
+  const [bulkDeleteSel, setBulkDeleteSel] = useState<Set<string>>(new Set())
   const ap = p.structure.pages[p.activePage] ?? p.structure.pages[0]
   const selField = ap && p.sel ? ap.sections[p.sel.si]?.fields[p.sel.fi] : null
   const fieldRefs = collectFieldRefs(p.structure)
@@ -223,6 +228,23 @@ export function StructureBuilder(p: Props) {
     }
   }
 
+  const runBulkDelete = async () => {
+    if (bulkDeleteSel.size === 0) return
+    if (!confirm(`Delete ${bulkDeleteSel.size} field${bulkDeleteSel.size === 1 ? '' : 's'}? Any client answers on them will be removed. This cannot be undone.`)) return
+    setGenerating(true)
+    try {
+      const targets = [...bulkDeleteSel].map((k) => {
+        const [pi, si, fi] = k.split('-').map(Number)
+        return { pi, si, fi }
+      })
+      await p.api.bulkDeleteFields(targets)
+      setBulkDeleteOpen(false)
+      setBulkDeleteSel(new Set())
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   if (!ap) return <div style={{ padding: 40, color: C.muted }}>No pages yet — add one.</div>
 
   return (
@@ -262,7 +284,8 @@ export function StructureBuilder(p: Props) {
           <div onClick={() => setSitemapOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: `1.5px solid ${C.cyan}`, color: C.cyan, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '11px 16px', borderRadius: 24, margin: '0 4px 8px', cursor: 'pointer' }}>🗺 GENERATE FROM SITEMAP</div>
           <div onClick={() => { setCustomOpen(true); setCustomStep(1) }} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: `1.5px solid ${C.cyan}`, color: C.cyan, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '11px 16px', borderRadius: 24, margin: '0 4px 8px', cursor: 'pointer' }}>🛠 BUILD CUSTOM WITH SITEMAP</div>
           <div onClick={() => setBulkAddOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: `1.5px solid ${C.navy2}`, color: C.navy2, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '11px 16px', borderRadius: 24, margin: '0 4px 8px', cursor: 'pointer' }}>➕ BULK ADD FIELDS</div>
-          <div onClick={() => { setBulkEditOpen(true); setBulkEditSel(new Set()); setBulkEditName('') }} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: `1.5px solid ${C.navy2}`, color: C.navy2, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '11px 16px', borderRadius: 24, margin: '0 4px 16px', cursor: 'pointer' }}>✎ BULK EDIT (RENAME)</div>
+          <div onClick={() => { setBulkEditOpen(true); setBulkEditSel(new Set()); setBulkEditName('') }} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: `1.5px solid ${C.navy2}`, color: C.navy2, fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '11px 16px', borderRadius: 24, margin: '0 4px 8px', cursor: 'pointer' }}>✎ BULK EDIT (RENAME)</div>
+          <div onClick={() => { setBulkDeleteOpen(true); setBulkDeleteSel(new Set()) }} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: '1.5px solid #c9491f', color: '#c9491f', fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '11px 16px', borderRadius: 24, margin: '0 4px 16px', cursor: 'pointer' }}>🗑 BULK DELETE FIELDS</div>
         </div>
       </div>
 
@@ -359,6 +382,61 @@ export function StructureBuilder(p: Props) {
               <div onClick={() => setBulkEditOpen(false)} style={{ color: '#5b5667', fontWeight: 700, fontSize: 14, padding: '12px 18px', cursor: 'pointer' }}>Cancel</div>
               <div onClick={runBulkEdit} style={{ background: bulkEditName.trim() && bulkEditSel.size ? C.navy2 : '#c9ccd4', color: '#fff', fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '12px 24px', borderRadius: 24, cursor: bulkEditName.trim() && bulkEditSel.size ? 'pointer' : 'default' }}>
                 {generating ? 'RENAMING…' : `RENAME ${bulkEditSel.size} FIELD${bulkEditSel.size === 1 ? '' : 'S'}`}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {bulkDeleteOpen && (
+        <div onClick={() => setBulkDeleteOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(16,28,52,.5)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 70, padding: '50px 20px', overflow: 'auto' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 18, width: 640, maxWidth: '100%', padding: '28px 30px 30px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ fontWeight: 800, fontSize: 22, color: C.inkDark, flex: 1 }}>Bulk delete fields</div>
+              <span onClick={() => setBulkDeleteOpen(false)} style={{ color: C.muted2, fontSize: 22, cursor: 'pointer' }}>✕</span>
+            </div>
+            <div style={{ color: C.muted, fontSize: 14, marginBottom: 14, lineHeight: 1.5 }}>
+              Tick the fields you want to remove, then delete them. Any client answers on them will be removed too.
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ fontWeight: 800, fontSize: 13, letterSpacing: '0.6px', color: C.muted2, flex: 1 }}>SELECT FIELDS ({bulkDeleteSel.size})</div>
+              <div
+                onClick={() => {
+                  const all = p.structure.pages.flatMap((pg, pi) => pg.sections.flatMap((sec, si) => sec.fields.map((f, fi) => ({ f, pi, si, fi })).filter((r) => !isDisplayField(r.f.type)).map((r) => `${r.pi}-${r.si}-${r.fi}`)))
+                  setBulkDeleteSel(bulkDeleteSel.size === all.length ? new Set() : new Set(all))
+                }}
+                style={{ color: C.cyan, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+              >
+                {bulkDeleteSel.size > 0 ? 'Clear all' : 'Select all'}
+              </div>
+            </div>
+            <div className="swnz-scroll" style={{ maxHeight: 340, overflowY: 'auto', border: '1px solid #ececf0', borderRadius: 10, padding: 6 }}>
+              {p.structure.pages.map((pg, pi) => {
+                const rows = pg.sections.flatMap((sec, si) => sec.fields.map((f, fi) => ({ f, si, fi }))).filter((r) => !isDisplayField(r.f.type))
+                if (rows.length === 0) return null
+                return (
+                  <div key={pi} style={{ marginBottom: 6 }}>
+                    <div style={{ fontWeight: 800, fontSize: 12.5, color: C.muted2, padding: '8px 10px 4px' }}>{pageNums[pi]}. {pg.name}</div>
+                    {rows.map(({ f, si, fi }) => {
+                      const k = `${pi}-${si}-${fi}`
+                      return (
+                        <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px 7px 20px', borderRadius: 8, cursor: 'pointer', fontSize: 14.5, color: C.ink }}>
+                          <input type="checkbox" checked={bulkDeleteSel.has(k)} onChange={(e) => setBulkDeleteSel((s) => { const n = new Set(s); e.target.checked ? n.add(k) : n.delete(k); return n })} />
+                          <span style={{ color: C.navy2, fontSize: 15, width: 20, textAlign: 'center' }}>{iconFor(f.type)}</span>
+                          <span>{f.label || 'Untitled field'}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                )
+              })}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 20 }}>
+              <div onClick={() => setBulkDeleteOpen(false)} style={{ color: '#5b5667', fontWeight: 700, fontSize: 14, padding: '12px 18px', cursor: 'pointer' }}>Cancel</div>
+              <div onClick={runBulkDelete} style={{ background: bulkDeleteSel.size ? '#c9491f' : '#e0b3a5', color: '#fff', fontWeight: 800, fontSize: 13, letterSpacing: '0.5px', padding: '12px 24px', borderRadius: 24, cursor: bulkDeleteSel.size ? 'pointer' : 'default' }}>
+                {generating ? 'DELETING…' : `DELETE ${bulkDeleteSel.size} FIELD${bulkDeleteSel.size === 1 ? '' : 'S'}`}
               </div>
             </div>
           </div>

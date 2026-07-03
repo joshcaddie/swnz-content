@@ -126,6 +126,23 @@ export function WizardPage() {
         if (f) f.label = name
       }
     }),
+    bulkDeleteFields: (targets) => {
+      // Group fi's per section so index-based removal stays correct.
+      const bySec = new Map<string, Set<number>>()
+      for (const t of targets) {
+        const key = `${t.pi}-${t.si}`
+        if (!bySec.has(key)) bySec.set(key, new Set())
+        bySec.get(key)!.add(t.fi)
+      }
+      mutate((s) => {
+        for (const [key, fis] of bySec) {
+          const [pi, si] = key.split('-').map(Number)
+          const sec = s.pages[pi]?.sections[si]
+          if (sec) sec.fields = sec.fields.filter((_, fi) => !fis.has(fi))
+        }
+      })
+      setSel(null)
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [activePage, structure])
 

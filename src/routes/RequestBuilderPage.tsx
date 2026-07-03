@@ -247,6 +247,15 @@ export function RequestBuilderPage() {
       }
       await refresh()
     },
+    bulkDeleteFields: async (targets) => {
+      const ids = targets.map((t) => maps.fieldIds[t.pi]?.[t.si]?.[t.fi]).filter(Boolean)
+      if (ids.length) {
+        const { error } = await supabase.from('request_fields').delete().in('id', ids as string[])
+        if (error) { alert(`Could not delete: ${error.message}`); return }
+      }
+      setSel(null)
+      await refresh()
+    },
   }
 
   const addField = async (type: FieldType, label: string) => {
